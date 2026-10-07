@@ -30,7 +30,7 @@ Questions about what marriage promises, what binds when desire changes, what leg
 
 ### [Comparative history of marriage and divorce](history-of-marriage/README.md)
 
-A separate archive on formation, divorce, remarriage, plural unions, property, labor, children, status, religion, state power, and the different meanings of marriage for elites, peasants, wage workers, enslaved people, and the propertyless. Includes an initial [comparative matrix](history-of-marriage/comparative-matrix.md) and [annotated bibliography](history-of-marriage/bibliography.md).
+A separate archive on formation, divorce, remarriage, plural unions, property, labor, children, status, religion, state power, and the different meanings of marriage for elites, peasants, wage workers, enslaved people, and the propertyless. Includes an initial [comparative matrix](history-of-marriage/comparative-matrix.md), [annotated bibliography](history-of-marriage/bibliography.md), and a [recovery of the earlier discussion](history-of-marriage/recovered-prior-thread.md), including Hindu permanence, Japan, zero-property cases, child status after breakup, wife sale, and *Montaillou*.
 
 ## Research rules
 
