@@ -37,34 +37,35 @@ Do not convert a statistically significant small mean effect into a promise that
 - Reported controlled-study effects: roughly `d = .30–.36` for relationship quality and `d = .43–.45` for communication skills.
 - Limits stated in the paper: little racial, ethnic, or economic diversity; most follow-ups at three to six months; only a handful beyond twelve months; relationship stability and aggression rarely measured; published communication studies had larger follow-up effects than unpublished studies.
 - Shallow use: evidence that short-term skill and satisfaction measures can move; also evidence that the field's common outcomes are narrower than the institution of marriage.
-- Open copy: https://scholarsarchive.byu.edu/cgi/viewcontent.cgi?article=5190&context=facpub.
+- Open record: https://scholarsarchive.byu.edu/facpub/4225/.
 
 ### Building Strong Families, federal multisite randomized evaluation
 
 - Intervention: voluntary relationship-skills education and related supports for unmarried couples expecting or recently having a child.
-- Design: more than 5,000 couples randomly assigned across eight local programs.
+- Design: more than 5,000 couples enrolled and were randomly assigned across eight local programs; the three-year analysis used follow-up data from more than 4,000 couples.
 - Three-year pooled result: no improvement in relationship quality, remaining romantically involved, marriage, or co-parenting; small negative effects appeared on some father-involvement outcomes. Site results varied, and patterns seen at fifteen months did not reliably persist.
-- Important detail: low attendance did not explain away the pooled null result; analyses among attendees produced little evidence of relationship effects.
+- Important detail: low attendance did not explain away the pooled null result; analyses among regular attendees produced little evidence of relationship effects.
 - Interpretation: a communication-and-relationship curriculum does not automatically overcome economic strain, unstable work, housing, prior trauma, new-parent demands, or local implementation differences.
+- Report page: https://www.mdrc.org/work/publications/long-term-effects-building-strong-families.
 - Executive summary: https://acf.gov/sites/default/files/documents/opre/bsf_36_mo_impact_exec_summ.pdf.
-- Technical supplement: https://www.mdrc.org/sites/default/files/BSF_36month_impact_tr_0.pdf.
 - Journal article: Robert G. Wood et al., “The Effects of Building Strong Families,” *Journal of Policy Analysis and Management* 31(2):228–252. DOI: https://doi.org/10.1002/pam.21608.
 
 ### Supporting Healthy Marriage / Within Our Reach
 
-- Citation: Galena K. Rhoades, “The Effectiveness of the Within Our Reach Relationship Education Program for Couples: Findings from a Federal Randomized Trial,” *Family Process* (2015).
+- Citation: Galena K. Rhoades, “The Effectiveness of the Within Our Reach Relationship Education Program for Couples: Findings from a Federal Randomized Trial,” *Family Process* 54(4):672–685. DOI: https://doi.org/10.1111/famp.12148.
 - Design: secondary analysis of 3,609 low-income married couples randomly assigned in the Supporting Healthy Marriage evaluation.
 - Reported result: small average effects on several self-reported couple and individual outcomes at twelve and thirty months, around `d = .14–.15`; no significant effect on the percentage married, cooperative parenting, or severe psychological assault.
 - Interpretation: some aspects of reported relationship experience may improve slightly without changing marital stability.
 - Shallow use: separate “better average score on selected scales” from “marriage preserved,” and inspect the full outcome family rather than highlighting only significant measures.
+- PubMed: https://pubmed.ncbi.nlm.nih.gov/25787758/.
 
 ### PREP for Strong Bonds, U.S. Army trial
 
-- Citation: Scott M. Stanley et al., “A Randomized Controlled Trial of Relationship Education in the U.S. Army: 2-Year Outcomes,” *Family Relations* 63(4):482–495. DOI: https://doi.org/10.1111/fare.12083.
+- Citation: Scott M. Stanley et al., “A Randomized Controlled Trial of Relationship Education in the U.S. Army: 2-Year Outcomes,” *Family Relations* 63(4):484–495. DOI: https://doi.org/10.1111/fare.12083.
 - Design: 662 married Army couples at two installations.
 - Result: no overall enduring effect on relationship quality at two years. At the higher-risk site, divorce was lower in the intervention group (`8.1%` versus `14.9%`); the effect did not generalize uniformly across sites and was moderated by participant characteristics.
 - Shallow use: preserve site heterogeneity. “The program reduced divorce” is too broad a summary.
-- PubMed Central record: https://pmc.ncbi.nlm.nih.gov/articles/PMC4235160/.
+- PubMed Central record: https://pmc.ncbi.nlm.nih.gov/articles/PMC4237282/.
 
 ### Eight-year randomized premarital intervention trial
 
@@ -77,12 +78,13 @@ Do not convert a statistically significant small mean effect into a promise that
 
 ### Hawkins et al. (2022), federally funded program meta-analysis
 
-- Citation: Alan J. Hawkins and colleagues, “How Effective Are ACF-Funded Couple Relationship Education Programs? A Meta-Analytic Study,” *Family Process* 61 (2022). DOI: https://doi.org/10.1111/famp.12739.
+- Citation: Alan J. Hawkins and colleagues, “How Effective Are ACF-Funded Couple Relationship Education Programs? A Meta-Analytic Study,” *Family Process* 61(3):970–985. DOI: https://doi.org/10.1111/famp.12739.
 - Scope: 32 controlled studies of adult couple relationship education funded through the U.S. Administration for Children and Families.
 - Pooled effects reported in the abstract: relationship quality `d = .114`; relationship skills `d = .132`; mental health `d = .074`; co-parenting `d = .033`.
 - Null pooled outcomes: relationship stability, parenting, and child well-being.
 - One-group pre/post studies produced larger estimates than controlled studies, reinforcing the danger of treating pre/post change as causal.
 - Shallow use: assume effects are small and outcome-specific unless stronger evidence says otherwise.
+- PubMed: https://pubmed.ncbi.nlm.nih.gov/35040124/.
 
 ## What the evidence does support
 
