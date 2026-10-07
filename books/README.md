@@ -22,3 +22,14 @@ These are subject placeholders, not claims that particular books are owned.
 ## Exclusions
 
 - Do not add the author the user explicitly rejected (name uncertain, described as “John find”); ask before adding anything resembling that reference.
+
+## Research notes: Taking the War Out of Our Words
+
+- Author: Sharon Strand Ellison. 2009 edition: Wyatt-MacKenzie, 287 pages; 2016 edition: Voices of Integrity, 304 pages.
+- Framework: Powerful Non-Defensive Communication (PNDC). Three defensive strategies: surrender, withdrawal, counterattack; six subpatterns: surrender-betray, surrender-sabotage, withdrawal-escape, withdrawal-entrap, counterattack-justify, counterattack-blame.
+- Alternative tools: genuine questions, direct nonjudgmental statements, and predictions about one's own actions/boundaries rather than coercive threats.
+- Relevance: divorce mediation, co-parenting, and financial conflict; possible source for questions about specific past interactions in Shallow. Treat these categories as a heuristic, not validated personality diagnoses.
+- Table of contents and editions: https://openlibrary.org/books/OL27137203M/Taking_the_war_out_of_our_words
+- Publisher: https://www.pndc.com/products/
+- Mediation discussion: https://mediate.com/difficult-communications-going-beyond-i-statements/
+- Comparison with Rosenberg NVC: https://livingcompassion.com/taking-war-words/
