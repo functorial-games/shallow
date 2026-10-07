@@ -10,6 +10,16 @@ Provisional personal inventory; ownership and editions still to verify.
 - Lucy Leu — *Nonviolent Communication Companion Workbook* (possible, not confirmed).
 - Merve Emre — *The Personality Brokers: The Strange History of Myers-Briggs and the Birth of Personality Testing* (2018; published in the UK as *What's Your Type?*). User-requested as a critical history of the MBTI and of Katharine Cook Briggs and Isabel Briggs Myers; include as history/critique of personality classification, not as an endorsement of MBTI as a model for Shallow. Emre was an associate professor at the University of Oxford around the book's publication. Source: https://www.penguinrandomhouse.com/books/546958/the-personality-brokers-by-merve-emre/
 
+## History of love / Helen Fisher
+
+Use Fisher as a source to mine rather than an authority to inherit; separate empirical papers from her broader evolutionary and neurochemical claims.
+
+- Helen Fisher — *Anatomy of Love* (1992; later revised edition).
+- Helen Fisher — *Why We Love: The Nature and Chemistry of Romantic Love* (2004).
+- Helen Fisher — *Why Him? Why Her?* (2009). Keep for completeness, but treat its personality/neurochemical typology skeptically.
+
+See `history-of-love/README.md` for primary-source leads, papers, talks, and methodological cautions.
+
 ## To identify
 
 - Conflict resolution with family members experiencing drug addiction.
