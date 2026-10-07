@@ -8,6 +8,7 @@ Provisional personal inventory; ownership and editions still to verify.
 - Marshall B. Rosenberg — *Nonviolent Communication: A Language of Life* (likely; ownership unconfirmed).
 - Sharon Strand Ellison — *Taking the War Out of Our Words: The Art of Powerful Non-Defensive Communication* (user-identified; first published 1998; 2016 ISBN 9780998244600). Communication through non-defensive questions, statements, and predictions; recommended in divorce mediation contexts. Sources: https://openlibrary.org/books/OL27137203M/Taking_the_war_out_of_our_words and https://www.pndc.com/products/.
 - Lucy Leu — *Nonviolent Communication Companion Workbook* (possible, not confirmed).
+- Merve Emre — *The Personality Brokers: The Strange History of Myers-Briggs and the Birth of Personality Testing* (2018; published in the UK as *What's Your Type?*). User-requested as a critical history of the MBTI and of Katharine Cook Briggs and Isabel Briggs Myers; include as history/critique of personality classification, not as an endorsement of MBTI as a model for Shallow. Emre was an associate professor at the University of Oxford around the book's publication. Source: https://www.penguinrandomhouse.com/books/546958/the-personality-brokers-by-merve-emre/
 
 ## To identify
 
@@ -22,6 +23,7 @@ These are subject placeholders, not claims that particular books are owned.
 ## Exclusions
 
 - Do not add the author the user explicitly rejected (name uncertain, described as “John find”); ask before adding anything resembling that reference.
+- Do not use John Gottman / Gottman-associated material as scientific grounding for Shallow. The user specifically rejects that body of work as pseudoscientific/scientistic; if it is ever mentioned, treat it as something to examine critically rather than as an evidence base.
 
 ## Research notes: Taking the War Out of Our Words
 
