@@ -2,6 +2,10 @@
 
 Provisional personal inventory; ownership and editions still to verify.
 
+## Confirmed favorite — mathematics
+
+- Terry Gannon — *Moonshine beyond the Monster: The Bridge Connecting Algebra, Modular Forms and Physics* (Cambridge University Press, 2006; open-access reissue 2023). User-confirmed favorite; ownership and edition not yet verified. Topics include the Monster group, modular functions and forms, vertex operator algebras, and mathematical physics. This is a source for modular forms and lattice-related exploration, not a primary source on Seifert surfaces. Open-access publisher edition: https://www.cambridge.org/core/books/moonshine-beyond-the-monster/3A71E70C0D04076395AB71F37CE27882
+
 ## Identified or likely
 
 - Steve and Vera Bodansky — *Extended Massive Orgasm* (edition to verify).
