@@ -26,7 +26,7 @@ What makes someone hope for a message from one particular person rather than mer
 
 ### [Premarital counseling and marriage preparation](premarital-counseling/README.md)
 
-Questions about what marriage promises, what binds when desire changes, what legitimately ends the obligation, and what duties survive separation. Includes a [map of free resources](premarital-counseling/resource-map.md) and a skeptical [evidence ledger](premarital-counseling/evidence.md).
+Questions about what marriage promises, what binds when desire changes, what legitimately ends the obligation, and what duties survive separation. Includes an expanded [resource index](premarital-counseling/resources.md), a skeptical [evidence ledger](premarital-counseling/evidence.md), and separate maps for Orthodox and Black church, LGBTQ and disability-centered, Hindu, Buddhist, and interfaith materials.
 
 ### [Comparative history of marriage and divorce](history-of-marriage/README.md)
 
