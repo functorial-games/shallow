@@ -1,14 +1,15 @@
 # Books
 
-Provisional inventory. Titles below are recollections, not verified editions or ownership records.
+Provisional personal inventory; ownership and editions still to verify.
 
-## Identified
+## Identified or likely
 
-- Steve and Vera Bodansky — *Extended Massive Orgasm* (author spelling and exact edition to verify).
+- Steve and Vera Bodansky — *Extended Massive Orgasm* (edition to verify).
+- Marshall B. Rosenberg — *Nonviolent Communication: A Language of Life* (likely; ownership unconfirmed).
+- Lucy Leu — *Nonviolent Communication Companion Workbook* (likely second NVC book; ownership unconfirmed).
 
 ## To identify
 
-- Two books on nonviolent communication (titles unknown).
 - Conflict resolution with family members experiencing drug addiction.
 - Conflict resolution between siblings.
 - Conflict resolution between parents and children.
