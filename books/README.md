@@ -6,7 +6,8 @@ Provisional personal inventory; ownership and editions still to verify.
 
 - Steve and Vera Bodansky — *Extended Massive Orgasm* (edition to verify).
 - Marshall B. Rosenberg — *Nonviolent Communication: A Language of Life* (likely; ownership unconfirmed).
-- Lucy Leu — *Nonviolent Communication Companion Workbook* (likely second NVC book; ownership unconfirmed).
+- Lauren N. Rosenberg and Jeffrey C. Rosenberg — *Taking the War Out of Our Words* (user-identified title; author details to verify).
+- Lucy Leu — *Nonviolent Communication Companion Workbook* (possible, not confirmed).
 
 ## To identify
 
