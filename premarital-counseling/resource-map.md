@@ -107,8 +107,9 @@ This is a research map, not a list of endorsed programs. Materials are useful fo
 
 ### Premarital Counseling for Older Adults
 
-- Author: Rabbi Richard F. Address and/or associated Jewish Sacred Aging materials; guide by Rabbi Stephen Viniar as identified in the document set.
+- Author: Carl Viniar, a rabbinic pastor, retired attorney, marital counselor, and mediator; the manual began as his ordination project.
 - Host: Jewish Sacred Aging.
+- Landing page: https://jewishsacredaging.com/study-guidesresources/.
 - Full guide: https://jewishsacredaging.com/wp-content/uploads/2022/03/Viniar-Premarital-Counseling-for-Older-Adults.pdf.
 - One-page checklist: https://jewishsacredaging.com/wp-content/uploads/2022/03/Viniar-One-Page-Checklist.pdf.
 - Coverage: adult children and blended families, assets and liabilities, prenuptial agreements, care obligations, aging, health, intimacy, religion, residence, death, and divorce.
