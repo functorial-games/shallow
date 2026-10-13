@@ -2,13 +2,13 @@
 
 Shallow and Yente must learn from the user's real life, including relationships that failed, attempts to repair them, unexpected encounters, and the assistant's failures to understand those experiences. Books are not a substitute for this material.
 
-This is a source collection and a learning requirement, not a relationship-advice program. It does not turn people into compatibility scores or turn their partners into subjects of compliance tests.
+This is a learning requirement and a design for an experience record, not a relationship-advice program. It does not turn people into compatibility scores or turn their partners into subjects of compliance tests.
 
 ## Starting evidence
 
 The user explicitly requested that these projects learn from their failures and real life, not only books. The request followed a long conversation in which the assistant repeatedly ignored corrections, offered unwanted instructions, substituted stereotypes for individuals, and invented motives for people it had not met.
 
-The initial [conversation-corrections](conversation-corrections.md) record preserves selected distinctions from that exchange. It contains minimized paraphrases, not a published transcript or an independently corroborated account of other people's thoughts. Event dates are not established by the date of the repository edit.
+The [correction requirements](correction-requirements.md) preserve general distinctions exposed by that exchange. They are not a published transcript or an independently corroborated account of other people's thoughts. Detailed personal case narratives have not been published in this change. Event dates are not established by the date of the repository edit.
 
 Two kinds of failure must remain separate:
 
@@ -19,7 +19,7 @@ The conversation supplies both, but provides much stronger direct evidence about
 
 ## What the project needs to retain
 
-Retain the particular situation before proposing a general account. A useful record includes:
+Retain the particular situation before proposing a general account. A useful private record includes:
 
 1. **What happened, as reported:** who approached whom, what was said or done, the relevant setting, and the sequence. Keep speaker attribution. A report need not be dismissed because it is a report; equally, it must not become an independently witnessed fact.
 2. **What the user made of it:** their interpretation, values, hopes, doubts, and questions. Distinguish a stated belief from an assistant's inference about that belief.
@@ -32,7 +32,7 @@ A record can be meaningful without every field being filled. Missing information
 
 ## Particulars before categories
 
-A profession, age, class position, artistic taste, or public identity does not supply the missing interaction. A shared interest does not establish domestic cooperation. Attraction does not by itself settle an intended next step. A difficult outcome does not establish that growth was impossible. These are distinctions to preserve in these cases, not a new taxonomy of good and bad partners.
+A profession, age, class position, artistic taste, or public identity does not supply the missing interaction. A shared interest does not establish domestic cooperation. Attraction does not by itself settle an intended next step. A difficult outcome does not establish that growth was impossible. Preserve these distinctions without making a new taxonomy of good and bad partners.
 
 Material constraints belong in the event history. Do not silently assume spare money, a different job, free time, the ability to move, a separate dating market, or authority over another adult. Do not romanticize poverty or replace an affluent stereotype with a working-class stereotype.
 
@@ -60,16 +60,16 @@ Literature can offer language, alternative interpretations, and comparisons. Emp
 
 When a framework conflicts with an account, preserve the conflict and check what each actually supports. Do not force the lived account to illustrate the framework. Do not treat the account as a universal law either. Attribute an author's argument only after reading the relevant source; an improvised paragraph is not an author's position because it carries that author's name.
 
-Add later developments to cases rather than freezing the person at a single disappointing moment. Record improvement, ambiguity, mixed results, and corrections as carefully as failure.
+Add later developments to authorized cases rather than freezing a person at a single disappointing moment. Record improvement, ambiguity, mixed results, and corrections as carefully as failure.
 
 ## Privacy and publication
 
 This repository is public. The user's instruction to learn from an experience is not blanket permission to publish a private dossier, another person's identity, or intimate details.
 
-The public collection should contain minimized lessons and de-identified examples. Omit names and identifying combinations such as a specific institution, exact ages, location, family particulars, health details, and sexual history when they are unnecessary to the lesson. Do not copy raw transcripts into issues, logs, model prompts committed to Git, or fixtures.
+The public collection should contain minimized lessons and explicitly approved de-identified examples. Omit names and identifying combinations when they are unnecessary to the lesson. Do not copy raw transcripts into issues, logs, model prompts committed to Git, or fixtures.
 
 Detailed personal case histories need a separately authorized private store, disclosure controls, and a real retention/deletion design. The privacy work described in [issue #1](https://github.com/functorial-games/shallow/issues/1) is a requirement, not an already implemented guarantee. Do not put sensitive source material into Git while waiting for that architecture.
 
 ## Status
 
-This collection makes requirements and selected corrections inspectable. It does not implement ingestion, persistent conversational memory, a trained model, or an automatic learning loop. Those claims require actual implementation and evidence.
+These notes make requirements and general corrections inspectable. They do not implement ingestion, persistent conversational memory, a private case store, a trained model, or an automatic learning loop. Those claims require actual implementation and evidence.
