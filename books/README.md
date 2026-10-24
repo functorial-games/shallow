@@ -6,6 +6,48 @@ Provisional personal inventory and research list; ownership and editions still n
 
 - Terry Gannon — *Moonshine beyond the Monster: The Bridge Connecting Algebra, Modular Forms and Physics* (Cambridge University Press, 2006; open-access reissue 2023). User-confirmed favorite; ownership and edition not yet verified. Topics include the Monster group, modular functions and forms, vertex operator algebras, and mathematical physics. This is a source for modular forms and lattice-related exploration, not a primary source on Seifert surfaces. Open-access publisher edition: https://www.cambridge.org/core/books/moonshine-beyond-the-monster/3A71E70C0D04076395AB71F37CE27882
 
+## Category theory — conceptual background for Yente
+
+This is a mathematical reading lane, not evidence that any category-theoretic
+construction predicts attraction, marital success, or the intentions of absent
+people. The most important distinction is **the changing relationship itself**
+versus change in either partner. See the [reading guide](category-theory/README.md)
+and [worked relationship-dynamics models](category-theory/yente-relationship-dynamics.md).
+
+- **F. William Lawvere and Stephen H. Schanuel**, *Conceptual Mathematics: A First
+  Introduction to Categories*, 2nd ed., Cambridge University Press, 2009.
+  User-identified as a book they liked, especially as a first introduction;
+  ownership/edition not verified. Begin with composition, opposed maps,
+  isomorphisms, sections and retractions, graphs, and universal properties.
+  [Extended original notes](category-theory/lawvere-schanuel.md).
+  [Publisher](https://www.cambridge.org/highereducation/books/conceptual-mathematics/00772F4CC3D4268200C5EC86B39D415A).
+- **Steve Awodey**, *Category Theory*, 2nd ed., Oxford University Press, 2010.
+  Specifically requested for the research shelf; no claim of ownership.
+  Follow duality, categories of diagrams, naturality, limits/colimits,
+  exponential objects, adjoints, monads, and monoidal structures.
+  [Extended original notes](category-theory/awodey.md).
+  [Edition identification](https://old.maa.org/press/maa-reviews/category-theory).
+- **Tom Leinster**, *Basic Category Theory*, Cambridge University Press, 2014.
+  Another rigorous short introduction, emphasizing universal properties,
+  representables, adjoints, Yoneda, and limits.
+  [Author page and authorized free version](https://webhomes.maths.ed.ac.uk/~tl/bct/).
+- **Emily Riehl**, *Category Theory in Context*, Dover, 2016. A source for
+  diagrams, functoriality, and careful mathematical examples.
+  [Author page and personal-use PDF terms](https://math.jhu.edu/~eriehl/context/).
+- **Brendan Fong and David I. Spivak**, *Seven Sketches in Compositionality:
+  An Invitation to Applied Category Theory*, Cambridge University Press, 2019.
+  Especially relevant as a model of how to design compositional *systems*
+  without mistaking the models for psychological laws.
+  [Author-posted preprint](https://arxiv.org/abs/1803.05316).
+- **Saunders Mac Lane**, *Categories for the Working Mathematician*, 2nd ed.,
+  Springer, 1998. Standard deeper reference, not the first introduction.
+  [Publisher](https://link.springer.com/book/10.1007/978-1-4757-4721-8).
+
+These are **suggested research sources**, except Lawvere–Schanuel's stated
+reader preference. The accompanying notes are original mathematical
+commentary, not copied textbook material, a completed reading diary, or
+an implementation of Yente.
+
 ## Identified or likely personal books
 
 - Steve and Vera Bodansky — *Extended Massive Orgasm* (edition to verify).
