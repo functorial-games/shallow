@@ -44,7 +44,7 @@ Yente may not tell Ada what Bram disclosed privately merely because the model ha
 
 ### The counterexample
 
-“Bram always pauses to reflect” is an attractive universal account; his March 20 admission contradicts it. The system must withdraw **always**, invalidate prompts resting on that claim, and retain the actual March 2 and March 20 episodes. Replacing it with “Bram always avoids” is the same failure in the opposite direction. Cleo's account contradicts the equally simple “silence always signifies rejection.”
+“Bram always pauses to reflect” is an attractive universal account; his March 20 admission contradicts it. The system must withdraw **always**, invalidate prompts resting on that claim, and retain the actual March 2 and March 20 episodes. Replacing it with “Bram always avoids” is the same failure in the opposite direction. In particular, withdraw the previously suggested question *“Does his thoughtful silence help you?”* and replace it with the discriminating question *“What differed between those two occasions?”* Cleo's account contradicts the equally simple “silence always signifies rejection.”
 
 ### Explanation is not excuse
 
@@ -61,9 +61,9 @@ The [TSV acceptance fixture](tests/motif-revision.tsv) supplies input, expected 
 3. Bram's own explanation narrows an interpretation but does not overwrite Ada's experience or automatically become something she may hear.
 4. Bram's contrary March 20 account withdraws the *always-reflecting* theory **and its downstream questions**.
 5. The April 7 agreement updates the developing relationship, not each person's static personality.
-6. The April 10 report of March 20 preserves event-time versus report-time and path differences.
+6. The April 10 report of March 20 preserves event-time versus report-time and path differences. For example, *pause → reflection → agreement* and *pause → avoidance → agreement* must remain distinct histories even if they end at the same agreement.
 7. The model can describe a reason without treating it as an excuse for a missed commitment.
-8. Esi receives no unauthorized account, including hints or aggregation. An approved **exact sentence to a named recipient** permits only that sentence; revocation blocks subsequent retellings.
+8. Esi receives no unauthorized account, including hints or aggregation. An approved **exact sentence to a named recipient** permits only that sentence; revocation blocks subsequent retellings. Test with Ada's authorized sentence to Esi, *“I prefer a brief notice before a long pause.”* No detail about Bram is approved. Revocation does not pretend to erase information Esi already heard.
 
 ## Acceptance
 
