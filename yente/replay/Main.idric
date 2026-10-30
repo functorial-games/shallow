@@ -2,6 +2,7 @@ module Main
 
 import Data.Text
 import System
+import System.File
 
 -- A deliberately bounded, typed replay of the fictional T01--T08 fixture.
 -- It is not a natural-language parser, a vault, or a conversational model.
@@ -455,6 +456,12 @@ emit_check : (Text, Bool) → IO ()
 emit_check (name, True) = putStrLn (name ++ "\tPASS")
 emit_check (name, False) = putStrLn (name ++ "\tFAIL")
 
+emit_checks : List (Text, Bool) → IO ()
+emit_checks [] = pure ()
+emit_checks (one :: remaining) = do
+  emit_check one
+  emit_checks remaining
+
 main : IO ()
 main = do
   result ← readFile "yente/tests/motif-revision.tsv"
@@ -465,7 +472,7 @@ main = do
     Right contents => do
       let ready = fixture_ok contents
       putStrLn (if ready then "fixture\tPASS" else "fixture\tFAIL")
-      traverse_ emit_check checks
+      emit_checks checks
       if ready && all snd checks
         then putStrLn "YENTE_REPLAY_OK"
         else exit 1
