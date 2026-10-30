@@ -1,0 +1,62 @@
+name: Yente checked-Idriç fictional replay
+
+on:
+  push:
+    branches:
+      - yente/motif-revision-2026-10-27
+    paths:
+      - 'yente/**'
+      - '.github/workflows/yente-replay.yml'
+  pull_request:
+    paths:
+      - 'yente/**'
+      - '.github/workflows/yente-replay.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fictional-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact Shallow PR or push head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify repository source head
+        env:
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_HEAD"
+
+      - name: Checkout pinned canonical Idriç compiler
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: isomorphisms/Idric
+          ref: 0e8cfdd1106ebdeffd01b6c519880ea3afc7dc35
+          path: .toolchain/Idric
+          persist-credentials: false
+
+      - name: Verify compiler pin and prerequisites
+        run: |
+          test "$(git -C .toolchain/Idric rev-parse HEAD)" = "0e8cfdd1106ebdeffd01b6c519880ea3afc7dc35"
+          sudo apt-get update
+          sudo apt-get install --yes libgmp-dev
+
+      - name: Bootstrap pinned Idriç (no alternate compiler fallback)
+        run: cd .toolchain/Idric && ./edric bootstrap
+
+      - name: Typecheck and execute the checked Idriç replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$PWD/.toolchain/Idric/.tools/bin:$PATH"
+          export CHEZ="$PWD/.toolchain/Idric/.tools/bin/scheme"
+          compiler="$PWD/.toolchain/Idric/idris2"
+          test -x "$compiler"
+          "$compiler" --check yente/replay/Main.idric
+          "$compiler" -o yente-replay yente/replay/Main.idric
+          test -x build/exec/yente-replay
+          python3 yente/tests/verify-replay.py "$PWD/build/exec/yente-replay"
