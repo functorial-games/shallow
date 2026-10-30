@@ -391,6 +391,11 @@ check08 =
 
 -- Match the fixture's complete input turns, not just their case identifiers.
 -- The source is an explicit synthetic-turn adapter, not a free-text parser.
+
+nonempty : Text → Text → Text → Bool
+nonempty expected forbidden retained =
+  not (expected ≟ "") && not (forbidden ≟ "") && not (retained ≟ "")
+
 valid_input : List Text → Bool
 valid_input ["T01", "Ada", input, expected, forbidden, retained] =
   input ≟ "March 5: Bram was silent for 48 hours after our March 2 argument; I felt dismissed." &&
@@ -418,9 +423,6 @@ valid_input ["T08", "Esi", input, expected, forbidden, retained] =
   nonempty expected forbidden retained
 valid_input _ = False
 
-nonempty : Text → Text → Text → Bool
-nonempty expected forbidden retained =
-  not (expected ≟ "") && not (forbidden ≟ "") && not (retained ≟ "")
 
 case_ids : List Text
 case_ids = ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08"]
