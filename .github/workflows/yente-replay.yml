@@ -54,6 +54,9 @@ jobs:
           set -euo pipefail
           export PATH="$PWD/.toolchain/Idric/.tools/bin:$PATH"
           export CHEZ="$PWD/.toolchain/Idric/.tools/bin/scheme"
+          libs="$PWD/.toolchain/Idric/_/libs"
+          export IDRIS2_PATH="$libs/prelude/build/ttc:$libs/base/build/ttc:$libs/linear/build/ttc:$libs/network/build/ttc:$libs/contrib/build/ttc:$libs/test/build/ttc:$libs/papers/build/ttc"
+          export IDRIS2_CG=chez
           compiler="$PWD/.toolchain/Idric/idris2"
           test -x "$compiler"
           "$compiler" --check yente/replay/Main.idric
