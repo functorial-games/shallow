@@ -48,4 +48,13 @@ Implementation work must use the existing Flexible Pipes job and receipt path wi
 
 ## Current status
 
-Requirements only. No ingestion code, private vault, correction engine, replay runner, trained model, or deployed matchmaker is implemented by these documents.
+The draft [PR #6](https://github.com/functorial-games/shallow/pull/6)
+contains a narrowly scoped [synthetic checked-Idriç replay](replay/README.md)
+for eight fixed fictional cases. Its actual compiler/runtime qualification
+depends on the exact-head workflow; structural fixture checks do not count as
+runtime execution. The replay is not a general conversational correction engine.
+
+No user ingestion, private vault, durable authorized learning, secure deployed
+permission enforcement, trained model, or matchmaker service exists here.
+Independent ai-ci and Flexible Pipes acceptance are not implied by an
+in-repository test.
