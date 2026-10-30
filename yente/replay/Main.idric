@@ -1,6 +1,7 @@
 module Main
 
 import Data.Text
+import Data.List1
 import System
 import System.File
 
@@ -437,8 +438,8 @@ fixture_ok content =
       length rows ≟ 8 &&
       map (\fields => case fields of
                          id :: _ => id
-                         _ => "") (map (split (\c => c ≟ '\t')) rows) ≟ case_ids &&
-      all valid_input (map (split (\c => c ≟ '\t')) rows)
+                         _ => "") (map (\line => forget (split (\c => c ≟ '\t') line)) rows) ≟ case_ids &&
+      all valid_input (map (\line => forget (split (\c => c ≟ '\t') line)) rows)
 
 checks : List (Text, Bool)
 checks =
