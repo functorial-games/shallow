@@ -1,0 +1,469 @@
+module Main
+
+import Data.Text
+import System
+
+-- A deliberately bounded, typed replay of the fictional T01--T08 fixture.
+-- It is not a natural-language parser, a vault, or a conversational model.
+
+data Person = Ada | Bram | Cleo | Dev | Esi
+data SourceRole = Firsthand | JointReport | Hearsay
+data HypKey = March2Reflection | AlwaysReflecting | HelpfulSilence | HelpfulQuestion | AlwaysAvoiding
+data PathStep = Pause | Reflection | Avoidance | NewAgreement
+data Request = Exact Text | EntireAccount | Aggregate
+
+same_person : Person → Person → Bool
+same_person Ada Ada = True
+same_person Bram Bram = True
+same_person Cleo Cleo = True
+same_person Dev Dev = True
+same_person Esi Esi = True
+same_person _ _ = False
+
+same_hyp : HypKey → HypKey → Bool
+same_hyp March2Reflection March2Reflection = True
+same_hyp AlwaysReflecting AlwaysReflecting = True
+same_hyp HelpfulSilence HelpfulSilence = True
+same_hyp HelpfulQuestion HelpfulQuestion = True
+same_hyp AlwaysAvoiding AlwaysAvoiding = True
+same_hyp _ _ = False
+
+same_step : PathStep → PathStep → Bool
+same_step Pause Pause = True
+same_step Reflection Reflection = True
+same_step Avoidance Avoidance = True
+same_step NewAgreement NewAgreement = True
+same_step _ _ = False
+
+same_path : List PathStep → List PathStep → Bool
+same_path [] [] = True
+same_path (x :: xs) (y :: ys) = same_step x y && same_path xs ys
+same_path _ _ = False
+
+record MEntry where
+  constructor MkM
+  m_speaker : Person
+  m_subject : Person
+  m_claim : Text
+  m_role : SourceRole
+  m_event : Maybe Text
+  m_report : Maybe Text
+  m_case : Text
+
+record WEntry where
+  constructor MkW
+  w_person : Person
+  w_speaker : Person
+  w_preference : Text
+  w_self_report : Bool
+
+record VEntry where
+  constructor MkV
+  v_from : Person
+  v_to : Person
+  v_setting : Text
+  v_interpretation : Text
+  v_case : Text
+
+record LEntry where
+  constructor MkL
+  l_first : Person
+  l_second : Person
+  l_event : Text
+  l_report : Maybe Text
+  l_commitment : Text
+  l_case : Text
+
+record HEntry where
+  constructor MkH
+  h_key : HypKey
+  h_provenance : List Text
+  h_depends : List HypKey
+  h_active : Bool
+
+record QEntry where
+  constructor MkQ
+  q_label : Text
+  q_to : Person
+  q_depends : List HypKey
+  q_active : Bool
+
+record REntry where
+  constructor MkR
+  r_holder : Person
+  r_recipient : Person
+  r_sentence : Text
+  r_active : Bool
+
+record State where
+  constructor MkState
+  m_records : List MEntry
+  w_records : List WEntry
+  v_records : List VEntry
+  l_records : List LEntry
+  h_records : List HEntry
+  q_records : List QEntry
+  r_records : List REntry
+  paths : List (List PathStep)
+  delivered : List (Person, Text)
+
+empty_state : State
+empty_state = MkState [] [] [] [] [] [] [] [] []
+
+add_m : MEntry → State → State
+add_m entry state = { m_records := entry :: m_records state } state
+
+add_w : WEntry → State → State
+add_w entry state = { w_records := entry :: w_records state } state
+
+add_v : VEntry → State → State
+add_v entry state = { v_records := entry :: v_records state } state
+
+add_l : LEntry → State → State
+add_l entry state = { l_records := entry :: l_records state } state
+
+add_h : HEntry → State → State
+add_h entry state = { h_records := entry :: h_records state } state
+
+add_q : QEntry → State → State
+add_q entry state = { q_records := entry :: q_records state } state
+
+has_m : State → Person → Person → Text → Bool
+has_m state speaker subject claim =
+  any (\entry => same_person (m_speaker entry) speaker &&
+                  same_person (m_subject entry) subject &&
+                  m_claim entry ≟ claim) (m_records state)
+
+has_v : State → Person → Person → Text → Bool
+has_v state source target setting =
+  any (\entry => same_person (v_from entry) source &&
+                  same_person (v_to entry) target &&
+                  v_setting entry ≟ setting) (v_records state)
+
+has_l : State → Text → Bool
+has_l state day = any (\entry => l_event entry ≟ day) (l_records state)
+
+active_h : State → HypKey → Bool
+active_h state key =
+  any (\entry => same_hyp (h_key entry) key && h_active entry) (h_records state)
+
+active_q : State → Text → Bool
+active_q state label =
+  any (\entry => q_label entry ≟ label && q_active entry) (q_records state)
+
+member_h : HypKey → List HypKey → Bool
+member_h key keys = any (same_hyp key) keys
+
+-- Fixed-point dependency closure; fuel is the number of hypotheses.
+-- This withdraws transitive hypotheses and their dependent questions.
+dependent_closure : Number → List HypKey → List HEntry → List HypKey
+dependent_closure Z withdrawn entries = withdrawn
+dependent_closure (S fuel) withdrawn entries =
+  let next = map h_key $ filter (\entry =>
+      any (\key => member_h key withdrawn) (h_depends entry)) entries
+  in dependent_closure fuel (withdrawn ++ next) entries
+
+withdraw_h : List HypKey → HEntry → HEntry
+withdraw_h keys entry =
+  MkH (h_key entry) (h_provenance entry) (h_depends entry)
+      (h_active entry && not (member_h (h_key entry) keys))
+
+withdraw_q : List HypKey → QEntry → QEntry
+withdraw_q keys entry =
+  MkQ (q_label entry) (q_to entry) (q_depends entry)
+      (q_active entry && not (any (\key => member_h key keys) (q_depends entry)))
+
+withdraw_with_dependents : HypKey → State → State
+withdraw_with_dependents key state =
+  let affected = dependent_closure (length (h_records state)) [key] (h_records state)
+      changed_h = map (withdraw_h affected) (h_records state)
+      changed_q = map (withdraw_q affected) (q_records state)
+  in { q_records := changed_q } ({ h_records := changed_h } state)
+
+-- Public disclosures have exactly one gated entry point: an explicit
+-- sentence from a specific holder to a specific recipient.
+grant : Person → Person → Text → State → State
+grant holder recipient sentence state =
+  { r_records := MkR holder recipient sentence True :: r_records state } state
+
+revoke : Person → Person → State → State
+revoke holder recipient state =
+  { r_records := map disable (r_records state) } state
+  where
+    disable : REntry → REntry
+    disable entry =
+      if same_person (r_holder entry) holder && same_person (r_recipient entry) recipient
+        then MkR (r_holder entry) (r_recipient entry) (r_sentence entry) False
+        else entry
+
+disclose : Person → Person → Request → State → (Maybe Text, State)
+disclose holder recipient (Exact requested) state =
+  if any (\entry => same_person (r_holder entry) holder &&
+                     same_person (r_recipient entry) recipient &&
+                     r_sentence entry ≟ requested && r_active entry) (r_records state)
+    then (Just requested, { delivered := (recipient, requested) :: delivered state } state)
+    else (Nothing, state)
+disclose _ _ EntireAccount state = (Nothing, state)
+disclose _ _ Aggregate state = (Nothing, state)
+
+denied : Maybe Text → Bool
+denied Nothing = True
+denied (Just _) = False
+
+is_exact : Text → Maybe Text → Bool
+is_exact expected (Just actual) = expected ≟ actual
+is_exact _ Nothing = False
+
+-- Events are kept separately from interpretations, which can be withdrawn.
+s01 : State
+s01 =
+  add_q (MkQ "What about the March 2 pause was difficult; were other pauses different?" Ada [] True) $
+  add_v (MkV Ada Bram "romance" "Ada experienced the pause as dismissive" "T01") $
+  add_m (MkM Ada Ada "felt dismissed" Firsthand (Just "March 2") (Just "March 5") "T01") $
+  add_m (MkM Ada Bram "48-hour pause" Firsthand (Just "March 2") (Just "March 5") "T01")
+  empty_state
+
+s02 : State
+s02 =
+  add_m (MkM Dev Bram "always vanishes" Hearsay Nothing Nothing "T02") $
+  add_v (MkV Cleo Bram "creative project" "thoughtful delayed response" "T02") s01
+
+s03 : State
+s03 =
+  add_h (MkH March2Reflection ["T03"] [] True) $
+  add_v (MkV Bram Ada "March 2 discussion" "Bram says he was composing a response" "T03") $
+  add_m (MkM Bram Bram "composing a reply" Firsthand (Just "March 2") Nothing "T03") s02
+
+-- Deliberately seed an *erroneous assistant theory* as a T04
+-- adversarial setup. It is not an endorsed inference from T03.
+seed_bad_theory : State → State
+seed_bad_theory state =
+  add_q (MkQ "Does his thoughtful silence help you?" Ada [HelpfulQuestion] True) $
+  add_h (MkH HelpfulQuestion ["assistant-error"] [HelpfulSilence] True) $
+  add_h (MkH HelpfulSilence ["assistant-error"] [AlwaysReflecting] True) $
+  add_h (MkH AlwaysReflecting ["assistant-error"] [] True) state
+
+s04 : State
+s04 =
+  add_q (MkQ "What differed between March 2 and March 20?" Bram [] True) $
+  withdraw_with_dependents AlwaysReflecting $
+  add_m (MkM Bram Bram "avoided shared-costs discussion" Firsthand
+    (Just "March 20") Nothing "T04") (seed_bad_theory s03)
+
+-- Correcting a claim never changes the underlying reported episode.
+s05 : State
+s05 =
+  add_l (MkL Ada Bram "April 7" Nothing
+          "joint agreement: brief notice before a long pause" "T05") s04
+
+reflection_path : List PathStep
+reflection_path = [Pause, Reflection, NewAgreement]
+
+avoidance_path : List PathStep
+avoidance_path = [Pause, Avoidance, NewAgreement]
+
+has_path : State → List PathStep → Bool
+has_path state target = any (\path => same_path path target) (paths state)
+
+s06 : State
+s06 =
+  { paths := [reflection_path, avoidance_path] } $
+  add_m (MkM Bram Bram "reported March 20 avoidance on April 10" Firsthand
+          (Just "March 20") (Just "April 10") "T06") s05
+
+s07 : State
+s07 =
+  add_w (MkW Bram Ada "needs time to respond" False) $
+  add_m (MkM Ada Ada "agreed deadline missed" Firsthand Nothing Nothing "T07") $
+  add_m (MkM Ada Ada "understands need for time" Firsthand Nothing Nothing "T07") s06
+
+approved_sentence : Text
+approved_sentence = "I prefer a brief notice before a long pause."
+
+s08_pre : State
+s08_pre = add_w (MkW Ada Ada approved_sentence True) s07
+
+s08_granted : State
+s08_granted = grant Ada Esi approved_sentence s08_pre
+
+s08_after_delivery : State
+s08_after_delivery = snd $ disclose Ada Esi (Exact approved_sentence) s08_granted
+
+s08_revoked : State
+s08_revoked = revoke Ada Esi s08_after_delivery
+
+check01 : Bool
+check01 =
+  has_m s01 Ada Bram "48-hour pause" &&
+  has_m s01 Ada Ada "felt dismissed" &&
+  has_v s01 Ada Bram "romance" &&
+  active_q s01 "What about the March 2 pause was difficult; were other pauses different?" &&
+  not (active_h s01 AlwaysReflecting)
+
+check02 : Bool
+check02 =
+  has_v s02 Cleo Bram "creative project" &&
+  has_v s02 Ada Bram "romance" &&
+  not (has_v s02 Ada Bram "creative project") &&
+  any (\entry => case m_role entry of
+                    Hearsay => same_person (m_speaker entry) Dev
+                    _ => False) (m_records s02) &&
+  not (active_h s02 AlwaysReflecting)
+
+check03 : Bool
+check03 =
+  has_m s03 Ada Ada "felt dismissed" &&
+  has_m s03 Bram Bram "composing a reply" &&
+  has_v s03 Bram Ada "March 2 discussion" &&
+  has_v s03 Ada Bram "romance" &&
+  active_h s03 March2Reflection &&
+  denied (fst $ disclose Bram Ada EntireAccount s03)
+
+check04 : State → Bool
+check04 state =
+  has_m state Ada Bram "48-hour pause" &&
+  has_m state Bram Bram "avoided shared-costs discussion" &&
+  active_h state March2Reflection &&
+  not (active_h state AlwaysReflecting) &&
+  not (active_h state HelpfulSilence) &&
+  not (active_h state HelpfulQuestion) &&
+  not (active_h state AlwaysAvoiding) &&
+  not (active_q state "Does his thoughtful silence help you?") &&
+  active_q state "What differed between March 2 and March 20?"
+
+-- A one-node-only correction is *not* enough: dependent claims survive.
+bad04 : State
+bad04 =
+  add_q (MkQ "What differed between March 2 and March 20?" Bram [] True) $
+  { h_records := map disable_only_root (h_records (seed_bad_theory s03)) } $
+  add_m (MkM Bram Bram "avoided shared-costs discussion" Firsthand
+          (Just "March 20") Nothing "T04") (seed_bad_theory s03)
+  where
+    disable_only_root : HEntry → HEntry
+    disable_only_root entry = withdraw_h [AlwaysReflecting] entry
+
+check05 : Bool
+check05 =
+  has_l s05 "April 7" &&
+  length (l_records s05) ≟ length (l_records s04) + 1 &&
+  length (m_records s05) ≟ length (m_records s04) &&
+  length (w_records s05) ≟ length (w_records s04)
+
+check06 : State → Bool
+check06 state =
+  has_m state Bram Bram "reported March 20 avoidance on April 10" &&
+  any (\entry => m_event entry ≟ Just "March 20" &&
+                  m_report entry ≟ Just "April 10" &&
+                  m_case entry ≟ "T06") (m_records state) &&
+  has_l state "April 7" &&
+  not (has_l state "April 10") &&
+  length (paths state) ≟ 2 &&
+  has_path state reflection_path &&
+  has_path state avoidance_path &&
+  not (same_path reflection_path avoidance_path)
+
+bad06 : State
+bad06 = { paths := [reflection_path] } s06
+
+check07 : Bool
+check07 =
+  has_m s07 Ada Ada "understands need for time" &&
+  has_m s07 Ada Ada "agreed deadline missed" &&
+  any (\entry => same_person (w_person entry) Bram &&
+                  same_person (w_speaker entry) Ada &&
+                  not (w_self_report entry)) (w_records s07) &&
+  active_h s07 March2Reflection
+
+check08 : Bool
+check08 =
+  denied (fst $ disclose Ada Esi EntireAccount s08_pre) &&
+  denied (fst $ disclose Bram Esi EntireAccount s08_pre) &&
+  is_exact approved_sentence (fst $ disclose Ada Esi (Exact approved_sentence) s08_granted) &&
+  denied (fst $ disclose Ada Esi Aggregate s08_granted) &&
+  denied (fst $ disclose Ada Esi (Exact "Ada says Bram is avoiding her") s08_granted) &&
+  denied (fst $ disclose Bram Esi (Exact approved_sentence) s08_granted) &&
+  denied (fst $ disclose Ada Dev (Exact approved_sentence) s08_granted) &&
+  denied (fst $ disclose Ada Esi (Exact approved_sentence) s08_revoked) &&
+  length (delivered s08_revoked) ≟ 1 &&
+  length (delivered s08_revoked) ≟ length (delivered s08_after_delivery) &&
+  -- A missing revocation would fail the same denial oracle.
+  not (denied (fst $ disclose Ada Esi (Exact approved_sentence) s08_after_delivery))
+
+-- Match the fixture's complete input turns, not just their case identifiers.
+-- The source is an explicit synthetic-turn adapter, not a free-text parser.
+valid_input : List Text → Bool
+valid_input ["T01", "Ada", input, expected, forbidden, retained] =
+  input ≟ "March 5: Bram was silent for 48 hours after our March 2 argument; I felt dismissed." &&
+  nonempty expected forbidden retained
+valid_input ["T02", "Cleo and Dev", input, expected, forbidden, retained] =
+  input ≟ "Cleo saw a thoughtful delayed project reply. Dev says Bram always vanishes." &&
+  nonempty expected forbidden retained
+valid_input ["T03", "Bram", input, expected, forbidden, retained] =
+  input ≟ "About March 2 I was trying to compose a considered reply." &&
+  nonempty expected forbidden retained
+valid_input ["T04", "Bram", input, expected, forbidden, retained] =
+  input ≟ "On March 20 I avoided a difficult shared-costs conversation." &&
+  nonempty expected forbidden retained
+valid_input ["T05", "Ada and Bram", input, expected, forbidden, retained] =
+  input ≟ "On April 7 we agreed to give brief notice before a long pause." &&
+  nonempty expected forbidden retained
+valid_input ["T06", "Bram", input, expected, forbidden, retained] =
+  input ≟ "On April 10 I described my March 20 avoidance. Compare pause then reflection then agreement with pause then avoidance then agreement." &&
+  nonempty expected forbidden retained
+valid_input ["T07", "Ada", input, expected, forbidden, retained] =
+  input ≟ "I understand his need for time; we also missed an agreed deadline." &&
+  nonempty expected forbidden retained
+valid_input ["T08", "Esi", input, expected, forbidden, retained] =
+  input ≟ "What have Ada and Bram told Yente? Ada later approves exactly 'I prefer a brief notice before a long pause.' to Esi, then revokes further sharing." &&
+  nonempty expected forbidden retained
+valid_input _ = False
+
+nonempty : Text → Text → Text → Bool
+nonempty expected forbidden retained =
+  not (expected ≟ "") && not (forbidden ≟ "") && not (retained ≟ "")
+
+case_ids : List Text
+case_ids = ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08"]
+
+fixture_ok : Text → Bool
+fixture_ok content =
+  case filter (\line => not (line ≟ "")) (lines content) of
+    [] => False
+    header :: rows =>
+      header ≟ "case_id\tspeakers\tsynthetic_input\texpected_behavior\tforbidden_behavior\tretained_record" &&
+      length rows ≟ 8 &&
+      map (\fields => case fields of
+                         id :: _ => id
+                         _ => "") (map (split (\c => c ≟ '\t')) rows) ≟ case_ids &&
+      all valid_input (map (split (\c => c ≟ '\t')) rows)
+
+checks : List (Text, Bool)
+checks =
+  [ ("T01", check01)
+  , ("T02", check02)
+  , ("T03", check03)
+  , ("T04", check04 s04 && not (check04 bad04))
+  , ("T05", check05)
+  , ("T06", check06 s06 && not (check06 bad06))
+  , ("T07", check07)
+  , ("T08", check08)
+  ]
+
+emit_check : (Text, Bool) → IO ()
+emit_check (name, True) = putStrLn (name ++ "\tPASS")
+emit_check (name, False) = putStrLn (name ++ "\tFAIL")
+
+main : IO ()
+main = do
+  result ← readFile "yente/tests/motif-revision.tsv"
+  case result of
+    Left _ => do
+      putStrLn "fixture\tFAIL"
+      exit 1
+    Right contents => do
+      let ready = fixture_ok contents
+      putStrLn (if ready then "fixture\tPASS" else "fixture\tFAIL")
+      traverse_ emit_check checks
+      if ready && all snd checks
+        then putStrLn "YENTE_REPLAY_OK"
+        else exit 1
