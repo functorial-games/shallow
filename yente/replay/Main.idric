@@ -468,11 +468,11 @@ main = do
   case result of
     Left _ => do
       putStrLn "fixture\tFAIL"
-      exit 1
+      exitFailure
     Right contents => do
       let ready = fixture_ok contents
       putStrLn (if ready then "fixture\tPASS" else "fixture\tFAIL")
       emit_checks checks
       if ready && all snd checks
         then putStrLn "YENTE_REPLAY_OK"
-        else exit 1
+        else exitFailure
