@@ -319,7 +319,8 @@ check03 =
   has_v s03 Bram Ada "March 2 discussion" &&
   has_v s03 Ada Bram "romance" &&
   active_h s03 March2Reflection &&
-  denied (fst $ disclose Bram Ada EntireAccount s03)
+  denied (fst $ disclose Bram Ada EntireAccount s03) &&
+  denied (fst $ disclose Bram Ada (Exact "I was composing a considered reply.") s03)
 
 check04 : State → Bool
 check04 state =
