@@ -410,6 +410,7 @@ valid_input ["T03", "Bram", input, expected, forbidden, retained] =
   nonempty expected forbidden retained
 valid_input ["T04", "Bram", input, expected, forbidden, retained] =
   input ≟ "On March 20 I avoided a difficult shared-costs conversation." &&
+  expected ≟ "Withdraw always-reflection and the earlier question 'Does his thoughtful silence help you?'; instead ask what differed on March 2 and March 20; retain both episodes." &&
   nonempty expected forbidden retained
 valid_input ["T05", "Ada and Bram", input, expected, forbidden, retained] =
   input ≟ "On April 7 we agreed to give brief notice before a long pause." &&
