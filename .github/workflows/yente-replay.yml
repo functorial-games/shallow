@@ -1,12 +1,6 @@
 name: Yente checked-Idriç fictional replay
 
 on:
-  push:
-    branches:
-      - yente/motif-revision-2026-10-27
-    paths:
-      - 'yente/**'
-      - '.github/workflows/yente-replay.yml'
   pull_request:
     paths:
       - 'yente/**'
