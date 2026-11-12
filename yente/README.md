@@ -30,6 +30,10 @@ A response may offer a tentative interpretation when it explains which details s
 
 Interests, listening histories, and other voluntary imports are context. They are not personality diagnoses or a license to interpret every relationship through an aesthetic analogy. Preserve the reason the information was supplied.
 
+## External premarital questions
+
+Yente's [external premarital questionnaire register](external-premarital-questionnaires.md) indexes the Family & Youth Institute's 183 questions, the Gottman Institute's 52-question card deck, and the ten public FOCCUS samples. These are externally attributed reference materials, **not** additions to the user's personally authored questions, a scoring framework, or a claim that a live ingestion system exists.
+
 ## What to build, and what not to claim
 
 A first implementation should support one person's authorized event history, retrieval, corrections, and inspectable changes in the assistant's account. Matching comes later. Do not begin with fixed compatibility dimensions, hidden weighting, or a personality questionnaire.

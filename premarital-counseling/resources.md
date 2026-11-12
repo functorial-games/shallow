@@ -13,6 +13,10 @@ The source archive is split so that a generic communication workbook does not be
 - [LGBTQ and disability-centered resources](lgbtq-and-disability-resources.md)
 - [Hindu, Buddhist, and interfaith resources](hindu-buddhist-and-interfaith-resources.md)
 
+## External questionnaire source register
+
+[Yente's separately attributed questionnaire register](../yente/external-premarital-questionnaires.md) records the Family & Youth Institute 183-question list, the Gottman Institute 52-question card deck, and ten public FOCCUS samples, including what is publicly available, source assumptions, and reuse limits. They remain separate from any user's own question list.
+
 ## What the archive is for
 
 Use these documents to:
