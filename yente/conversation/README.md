@@ -54,7 +54,7 @@ For transport retries, wrap a command in `event`, an explicit operation identifi
 event<TAB>story-001<TAB>say<TAB>lio-private<TAB>lio<TAB>wish<TAB><TAB>2026-01-10<TAB>I want Sunday lunch with my parents most weeks.
 ```
 
-The notation `<TAB>` denotes one actual tab, not those five literal characters. Repeating the same event identifier and identical command returns the original response without applying another transition. Reusing it with different input is rejected. A new identifier represents a new event even if the words happen to be the same. Bare mutating commands remain supported but do not provide general transport retry identity. Event receipts do not enter the model context.
+The notation `<TAB>` denotes one actual tab, not those five literal characters. Repeating the same event identifier and identical command returns its receipt without applying another transition. A previously spoken Yenta reply returns only `OK replayed EVENT_ID`, so a retry cannot emit old wording after a correction or revocation. Read operations cannot be wrapped as events. Reusing an identifier with different input is rejected. A new identifier represents a new event even if the words happen to be the same. Bare mutating commands remain supported but do not provide general transport retry identity. Event receipts do not enter the model context.
 
 ## Model request and response framing
 

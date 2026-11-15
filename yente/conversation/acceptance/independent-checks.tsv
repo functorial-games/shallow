@@ -91,6 +91,20 @@ PASS	event retry creates one account
 PASS	event-retry process status
 PASS	event receipt survives restart
 PASS	reusing event identity for different content rejected
+PASS	reply-retry process status
+PASS	event delivers grounded response initially
+PASS	reply-retry process status
+PASS	reply-retry process status
+PASS	reply retry after correction returns opaque receipt
+PASS	reply retry cannot duplicate recorded history
+PASS	reply-retry process status
+PASS	event cannot cache a context read
+PASS	rejected read event never enters journal
+PASS	revoked-reply-retry process status
+PASS	approved evidence supports initial response
+PASS	revoked-reply-retry process status
+PASS	revoked-reply-retry process status
+PASS	reply retry cannot reemit revoked disclosure
 PASS	absolute demonstration command path
 PASS	demonstration process status
 PASS	demonstration has no failed command receipts

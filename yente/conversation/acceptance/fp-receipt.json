@@ -1,15 +1,15 @@
 {
-  "finished_at": "2026-11-15T18:31:16.198612+00:00",
+  "finished_at": "2026-11-15T18:40:54.582671+00:00",
   "github_sha_declared": null,
   "parameters": {
     "candidate": "/workspace/scratch/5704c3ee8c44/shallow/build/exec/yente-conversation",
     "commands": "/workspace/scratch/5704c3ee8c44/shallow/yente/conversation/fixtures/family.tsv",
     "materials": "/workspace/scratch/5704c3ee8c44/shallow/yente/conversation/materials",
-    "oracle": "/workspace/scratch/5704c3ee8c44/yente-oracle-v3/yente-accept",
-    "request": "/workspace/scratch/5704c3ee8c44/fp-yente-v3/request.txt",
+    "oracle": "/workspace/scratch/5704c3ee8c44/yente-oracle-v4/yente-accept",
+    "request": "/workspace/scratch/5704c3ee8c44/fp-yente-v4/request.txt",
     "response": "/workspace/scratch/5704c3ee8c44/shallow/yente/conversation/fixtures/family-response.tsv",
     "session": "lio-private",
-    "state": "/workspace/scratch/5704c3ee8c44/fp-yente-v3/state"
+    "state": "/workspace/scratch/5704c3ee8c44/fp-yente-v4/state"
   },
   "pipeline": "yente-conversation",
   "pipeline_path": "pipelines/yente-conversation.json",
@@ -27,17 +27,17 @@
       "argv": [
         "/workspace/scratch/5704c3ee8c44/shallow/build/exec/yente-conversation",
         "script",
-        "/workspace/scratch/5704c3ee8c44/fp-yente-v3/state",
+        "/workspace/scratch/5704c3ee8c44/fp-yente-v4/state",
         "/workspace/scratch/5704c3ee8c44/shallow/yente/conversation/materials",
         "/workspace/scratch/5704c3ee8c44/shallow/yente/conversation/fixtures/family.tsv"
       ],
       "cwd": ".",
       "exit_code": 0,
-      "finished_at": "2026-11-15T18:30:54.761157+00:00",
+      "finished_at": "2026-11-15T18:40:31.904907+00:00",
       "index": 1,
       "kind": "command",
       "name": "fictional-conversation",
-      "started_at": "2026-11-15T18:30:54.331230+00:00",
+      "started_at": "2026-11-15T18:40:31.349749+00:00",
       "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "stdout_sha256": "6b8c2bb9dc016db81047968406d72d2fbb11c49584efb32f1bca0572b3cd029b"
     },
@@ -45,18 +45,18 @@
       "argv": [
         "/workspace/scratch/5704c3ee8c44/shallow/build/exec/yente-conversation",
         "request",
-        "/workspace/scratch/5704c3ee8c44/fp-yente-v3/state",
+        "/workspace/scratch/5704c3ee8c44/fp-yente-v4/state",
         "/workspace/scratch/5704c3ee8c44/shallow/yente/conversation/materials",
         "lio-private",
-        "/workspace/scratch/5704c3ee8c44/fp-yente-v3/request.txt"
+        "/workspace/scratch/5704c3ee8c44/fp-yente-v4/request.txt"
       ],
       "cwd": ".",
       "exit_code": 0,
-      "finished_at": "2026-11-15T18:30:55.524331+00:00",
+      "finished_at": "2026-11-15T18:40:32.431808+00:00",
       "index": 2,
       "kind": "command",
       "name": "permitted-model-request",
-      "started_at": "2026-11-15T18:30:54.761351+00:00",
+      "started_at": "2026-11-15T18:40:31.905151+00:00",
       "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "stdout_sha256": "da5f87117a97b989dc493723d86a91751c8a6f37740c21e6c9933da816235220"
     },
@@ -64,40 +64,40 @@
       "argv": [
         "/workspace/scratch/5704c3ee8c44/shallow/build/exec/yente-conversation",
         "accept",
-        "/workspace/scratch/5704c3ee8c44/fp-yente-v3/state",
+        "/workspace/scratch/5704c3ee8c44/fp-yente-v4/state",
         "/workspace/scratch/5704c3ee8c44/shallow/yente/conversation/materials",
         "lio-private",
-        "/workspace/scratch/5704c3ee8c44/fp-yente-v3/request.txt",
+        "/workspace/scratch/5704c3ee8c44/fp-yente-v4/request.txt",
         "/workspace/scratch/5704c3ee8c44/shallow/yente/conversation/fixtures/family-response.tsv"
       ],
       "cwd": ".",
       "exit_code": 0,
-      "finished_at": "2026-11-15T18:30:55.984154+00:00",
+      "finished_at": "2026-11-15T18:40:32.831118+00:00",
       "index": 3,
       "kind": "command",
       "name": "recorded-response-admission",
-      "started_at": "2026-11-15T18:30:55.524530+00:00",
+      "started_at": "2026-11-15T18:40:32.432056+00:00",
       "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "stdout_sha256": "dfa452c7cd71202817bbf61401d7010ef6f78d310b82c4aded313a2a84d78d42"
     },
     {
       "argv": [
-        "/workspace/scratch/5704c3ee8c44/yente-oracle-v3/yente-accept",
+        "/workspace/scratch/5704c3ee8c44/yente-oracle-v4/yente-accept",
         "/workspace/scratch/5704c3ee8c44/shallow/build/exec/yente-conversation",
         "/workspace/scratch/5704c3ee8c44/shallow/yente/conversation/materials",
         "/workspace/scratch/5704c3ee8c44/shallow/yente/conversation/fixtures/family.tsv"
       ],
       "cwd": ".",
       "exit_code": 0,
-      "finished_at": "2026-11-15T18:31:16.198384+00:00",
+      "finished_at": "2026-11-15T18:40:54.582410+00:00",
       "index": 4,
       "kind": "command",
       "name": "independent-aici-acceptance",
-      "started_at": "2026-11-15T18:30:55.984448+00:00",
+      "started_at": "2026-11-15T18:40:32.831316+00:00",
       "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "stdout_sha256": "b341dbfa681bdbe70626ea2b27b1c576e8bb6f4d406d0e0076c2f8ebf0364bfd"
+      "stdout_sha256": "ce912dcc9219d89aa380524b5fb2836d1c9628cbd94cfc1c437fec398e938029"
     }
   ],
-  "started_at": "2026-11-15T18:30:54.330997+00:00",
+  "started_at": "2026-11-15T18:40:31.349551+00:00",
   "status": "PASS"
 }

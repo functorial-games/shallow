@@ -51,6 +51,13 @@ confirmations, disclosure editing/revocation, two-world model-request equality,
 recorded-response admission, stale request refusal, corrupt recovery refusal,
 and explicit event retry identities.
 
+A later replay review exposed a cached-wording defect: retrying an event-wrapped
+reply could repeat text after its supporting evidence was withdrawn. Reply
+retries now emit only an opaque receipt, and read operations cannot be cached as
+events. Independent cases exercise both correction and revocation before a
+retry, check no duplicate history, and require wrapped reads to leave the journal
+unchanged. The earlier implementation is deliberately rejected by these cases.
+
 The Store boundary additionally executed thirteen hostile/roundtrip controls,
 including strict UTF-8 rejection, checked flush/close, lock refusal and failed
 replacement preserving committed bytes. These supplemental probes are not a

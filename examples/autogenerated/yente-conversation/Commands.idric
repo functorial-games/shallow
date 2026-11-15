@@ -118,9 +118,10 @@ apply_command catalog line state =
       else
         let command = concat (intersperse "\t" (operation :: arguments))
         in case find (\(key, _, _) => key ≟ identifier) (event_receipts state) of
-          Just (_, previous, response) => if previous ≟ command then Right (CommandResult state response False) else Left (Stale "event identifier reused with different input")
+          Just (_, previous, response) => if previous ≟ command then Right (CommandResult state (if isPrefixOf "YENTA\t" response then "OK\treplayed\t" ++ identifier else response) False) else Left (Stale "event identifier reused with different input")
           Nothing => do
             result ← apply_operation catalog command state
+            if not (changed result) then Left (Invalid "event wrapper requires a mutation") else Right ()
             let updated = { event_receipts := event_receipts (new_state result) ++ [(identifier, command, output result)] } (new_state result)
             Right (CommandResult updated (output result) True)
     _ => apply_operation catalog line state

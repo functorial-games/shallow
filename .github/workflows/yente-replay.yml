@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: yente-conversation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   conversation:
     runs-on: ubuntu-24.04
@@ -41,7 +45,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: isomorphisms/ai-ci
-          ref: 4c5fd2d2941e05a02a15ebf98fd5026323a307fa
+          ref: 2a3fe5679968a812fc3a42c029a43215682e5ade
           path: .toolchain/ai-ci
           persist-credentials: false
       - name: Bootstrap canonical compiler
