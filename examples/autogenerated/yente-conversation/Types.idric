@@ -1,0 +1,165 @@
+module Types
+
+import Data.Text
+
+public export
+data KeyKind = PersonKey | SessionKey | EvidenceKey | HypothesisKey | PlanKey | ProposalKey | AgreementKey
+
+public export
+record Key (kind : KeyKind) where
+  constructor Named
+  key_text : Text
+
+public export
+same_key : Key kind → Key kind → Bool
+same_key first second = key_text first ≟ key_text second
+
+public export
+has_key : Key kind → List (Key kind) → Bool
+has_key target = any (same_key target)
+
+public export
+data AccountKind = Report | Hearsay | Wish | Hypothetical | AgreementReport | AuthorizedStatement
+
+public export
+kind_name : AccountKind → Text
+kind_name Report = "report"
+kind_name Hearsay = "hearsay"
+kind_name Wish = "wish"
+kind_name Hypothetical = "hypothetical"
+kind_name AgreementReport = "agreement-report"
+kind_name AuthorizedStatement = "author-approved"
+
+public export
+data Move = Episode | Expectation | Constraint | Scenario | Interpretation | Revisit | Summarize | Disclosure | Pause
+
+public export
+move_name : Move → Text
+move_name Episode = "episode"
+move_name Expectation = "expectation"
+move_name Constraint = "constraint"
+move_name Scenario = "hypothetical"
+move_name Interpretation = "interpretation"
+move_name Revisit = "revisit"
+move_name Summarize = "summarize"
+move_name Disclosure = "disclosure"
+move_name Pause = "pause"
+
+public export
+record Session where
+  constructor SessionFor
+  session_id : Key SessionKey
+  participants : List (Key PersonKey)
+  audience_role : Text
+  role_subject : Key PersonKey
+  purpose : Text
+  discussion_allowed : Bool
+  retention_allowed : Bool
+  topic : Text
+  deferred_topics : List Text
+  preferences : Text
+
+public export
+record Evidence where
+  constructor Attributed
+  evidence_id : Key EvidenceKey
+  evidence_session : Key SessionKey
+  speaker : Key PersonKey
+  subjects : List (Key PersonKey)
+  passage : Text
+  account_kind : AccountKind
+  event_time : Text
+  report_time : Text
+  evidence_revision : Number
+  superseded : Bool
+
+public export
+record Hypothesis where
+  constructor Tentative
+  hypothesis_id : Key HypothesisKey
+  hypothesis_session : Key SessionKey
+  claim : Text
+  support : List (Key EvidenceKey)
+  depends_on : List (Key HypothesisKey)
+  hypothesis_active : Bool
+
+public export
+record Challenge where
+  constructor ChallengeFor
+  challenge_id : Text
+  challenge_topic : Text
+  challenge_audience : Text
+  authorship : Text
+  source_ids : Text
+  assumptions : Text
+  relevance : Text
+  uncertainty : Text
+  first_move : Move
+  first_prompt : Text
+  followup_moves : List Text
+
+public export
+record TurnPlan where
+  constructor Planned
+  plan_id : Key PlanKey
+  plan_session : Key SessionKey
+  planned_move : Move
+  target_uncertainty : Text
+  evidence_refs : List (Key EvidenceKey)
+  hypothesis_refs : List (Key HypothesisKey)
+  challenge_ref : Text
+  planned_topic : Text
+  snapshot : Text
+  wording : Text
+  plan_active : Bool
+  plan_delivered : Bool
+
+public export
+record Proposal where
+  constructor Retelling
+  proposal_id : Key ProposalKey
+  proposal_session : Key SessionKey
+  holder : Key PersonKey
+  recipients : List (Key PersonKey)
+  destinations : List (Key SessionKey)
+  proposal_text : Text
+  proposal_revision : Number
+  approved : Bool
+  revoked : Bool
+  sent : Bool
+
+public export
+record Agreement where
+  constructor AgreementFor
+  agreement_id : Key AgreementKey
+  agreement_session : Key SessionKey
+  agreement_text : Text
+  agreement_revision : Number
+  affected : List (Key PersonKey)
+  confirmations : List (Key PersonKey)
+
+public export
+record State where
+  constructor ConversationState
+  people : List (Key PersonKey)
+  sessions : List Session
+  evidence : List Evidence
+  hypotheses : List Hypothesis
+  plans : List TurnPlan
+  proposals : List Proposal
+  agreements : List Agreement
+  event_receipts : List (Text, Text, Text)
+
+public export
+empty_state : State
+empty_state = ConversationState [] [] [] [] [] [] [] []
+
+public export
+data Failure = Invalid Text | Unknown Text | Forbidden Text | Stale Text
+
+public export
+failure_text : Failure → Text
+failure_text (Invalid reason) = "invalid: " ++ reason
+failure_text (Unknown reason) = "unknown: " ++ reason
+failure_text (Forbidden reason) = "forbidden: " ++ reason
+failure_text (Stale reason) = "stale: " ++ reason

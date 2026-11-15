@@ -1,0 +1,98 @@
+PASS	absolute candidate and material paths
+PASS	isolated acceptance directory
+PASS	accounts process status
+PASS	novel people and retained report identity
+PASS	distinct report and event dates
+PASS	account kinds preserved
+PASS	hypothetical keeps its original passage
+PASS	correction process status
+PASS	correction creates a separately attributed replacement
+PASS	transitive hypotheses withdrawn
+PASS	original episode and correction retained in audit journal
+PASS	replacement account retained
+PASS	independent support survives transitive withdrawal
+PASS	correction process status
+PASS	restart preserves correction and unrelated evidence
+PASS	boundaries process status
+PASS	cross-session support rejected
+PASS	hypothesis self-dependency rejected
+PASS	outside speaker rejected
+PASS	another speaker cannot overwrite account
+PASS	rejected material never enters visible context
+PASS	valid account survives rejected commands
+PASS	agreement process status
+PASS	agreement proposal accepted
+PASS	parent cannot confirm for participant
+PASS	duplicate participant confirmation leaves agreement pending
+PASS	agreement process status
+PASS	stale and text-mismatched confirmations rejected
+PASS	distinct participants confirm exact agreement
+PASS	agreement process status
+PASS	agreement edit withdraws previous confirmations
+PASS	disclosure process status
+PASS	approval holder enforced
+PASS	unapproved, edited, and revoked deliveries rejected
+PASS	unauthorized retelling absent from recipient
+PASS	delivery-once process status
+PASS	unapproved destination and multi-holder source scope rejected
+PASS	authorized delivery succeeds and retry is idempotent
+PASS	retelling delivered exactly once to named recipient
+PASS	delivered retelling retains author-approved account kind
+PASS	delivery-once process status
+PASS	restart does not duplicate delivered text
+PASS	shared-delivery process status
+PASS	holder can approve exact retelling into shared couple session
+PASS	shared destination requires a recipient and excludes outsiders
+PASS	shared delivery stays within exact selected destination
+PASS	world-one process status
+PASS	world-two process status
+PASS	world-one model request construction
+PASS	world-two model request construction
+PASS	hidden facts cannot influence recipient model request
+PASS	model request contains only permitted source
+PASS	world-one model request construction
+PASS	world-one model request construction
+PASS	audience role changes the permitted model task
+PASS	world-one process status
+PASS	world-one model request construction
+PASS	deferral changes retained conversational state
+PASS	world-one model request construction
+PASS	deferral survives restart
+PASS	delivery-once model request construction
+PASS	approved delivery is available in its destination request
+PASS	delivery-once process status
+PASS	delivery-once model request construction
+PASS	revoked retelling excluded from future model request
+PASS	plan-good process status
+PASS	plan-good model request construction
+PASS	grounded recorded response accepted
+PASS	plan-good process status
+PASS	accepted response becomes visible conversational history
+PASS	reused stale request cannot duplicate model delivery
+PASS	plan-private-reference process status
+PASS	plan-private-reference model request construction
+PASS	response cannot cite another session's private evidence
+PASS	plan-corrected process status
+PASS	plan-corrected model request construction
+PASS	plan-corrected process status
+PASS	correction invalidates in-flight response
+PASS	plan-deferred process status
+PASS	plan-deferred model request construction
+PASS	deferred question remains ineligible even in fresh request
+PASS	plan-injected-operation process status
+PASS	plan-injected-operation model request construction
+PASS	model output cannot append an authorization command
+PASS	corrupt-journal process status
+PASS	truncated journal fails before replay
+PASS	failed recovery preserves corrupt evidence bytes
+PASS	event-retry process status
+PASS	event retry returns original receipt
+PASS	event retry creates one account
+PASS	event-retry process status
+PASS	event receipt survives restart
+PASS	reusing event identity for different content rejected
+PASS	absolute demonstration command path
+PASS	demonstration process status
+PASS	demonstration has no failed command receipts
+PASS	demonstration produces valid nonempty Yenta transcript
+YENTE_AICI_ACCEPTANCE_OK
