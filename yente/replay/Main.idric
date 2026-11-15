@@ -161,8 +161,7 @@ member_h key keys = any (same_hyp key) keys
 dependent_closure : Number → List HypKey → List HEntry → List HypKey
 dependent_closure Z withdrawn entries = withdrawn
 dependent_closure (S fuel) withdrawn entries =
-  let next = map h_key $ filter (\entry =>
-      any (\key => member_h key withdrawn) (h_depends entry)) entries
+  let next = map h_key $ filter (\entry => any (\key => member_h key withdrawn) (h_depends entry)) entries
   in dependent_closure fuel (withdrawn ++ next) entries
 
 withdraw_h : List HypKey → HEntry → HEntry
@@ -465,6 +464,8 @@ emit_checks (one :: remaining) = do
   emit_check one
   emit_checks remaining
 
+-- Reading a supplied file is an external, potentially unbounded IO boundary.
+covering
 main : IO ()
 main = do
   result ← readFile "yente/tests/motif-revision.tsv"
