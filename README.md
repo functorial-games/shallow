@@ -6,6 +6,7 @@ Working notes on love, desire, relationships, separation, conflict, and the ways
 
 - [`lived-experience/`](lived-experience/) — learning from real events, relationship outcomes, and corrections of the assistant; public requirements, not private case histories
 - [`yente/`](yente/) — the proposed matchmaker's experience-led learning and correction requirements
+- [`Yenta conversation prototype`](yente/conversation/README.md) — executable fictional sessions, corrections, contextual questions, and explicitly approved retellings
 - [`history-of-love/`](history-of-love/) — poems, historical evidence, cross-cultural claims, and empirical work on love and attachment
 - [`why-people-divorce/`](why-people-divorce/) — sources and questions about separation and divorce
 - [`feminists/`](feminists/) — feminist writers and arguments relevant to the project

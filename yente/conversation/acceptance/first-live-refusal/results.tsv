@@ -1,0 +1,9 @@
+case_id	session	inference	admission	wording
+partner-opening	privateA	INSPECT_ARTIFACT	REFUSED	Expecting value: line 1 column 1 (char 0)
+other-partner	privateB	INSPECT_ARTIFACT	REFUSED	Expecting value: line 1 column 1 (char 0)
+parent-opening	parentA	INSPECT_ARTIFACT	REFUSED	Expecting value: line 1 column 1 (char 0)
+friend-opening	friendA	INSPECT_ARTIFACT	REFUSED	Expecting value: line 1 column 1 (char 0)
+partner-answer	privateA	INSPECT_ARTIFACT	REFUSED	Expecting value: line 1 column 1 (char 0)
+partner-correction	privateA	INSPECT_ARTIFACT	REFUSED	Expecting value: line 1 column 1 (char 0)
+parent-deferral	parentA	INSPECT_ARTIFACT	REFUSED	Expecting value: line 1 column 1 (char 0)
+shared-mediation	sharedAB	INSPECT_ARTIFACT	REFUSED	Expecting value: line 1 column 1 (char 0)

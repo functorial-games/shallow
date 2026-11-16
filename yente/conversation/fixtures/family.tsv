@@ -1,0 +1,44 @@
+event	family-person-lio	person	lio
+event	family-person-mira	person	mira
+event	family-person-nera	person	nera
+event	family-person-daro	person	daro
+event	family-person-suri	person	suri
+event	family-session-lio	session	lio-private	partner	lio	lio	Explore Lio's own hopes for family visits
+event	family-session-mira	session	mira-private	partner	mira	mira	Explore Mira's experience of family visits
+event	family-session-nera	session	nera-private	parent	lio	nera	Explore Nera's own expectations and accommodation
+event	family-session-daro	session	daro-private	parent	mira	daro	Explore Daro's own family contact preferences
+event	family-session-suri	session	suri-private	friend	lio	suri	Ask what Suri personally witnessed
+event	family-session-shared	session	couple	shared	lio	lio,mira	A place for statements both people explicitly authorize
+event	family-consent-lio	consent	lio-private	yes	yes
+event	family-consent-mira	consent	mira-private	yes	yes
+event	family-consent-nera	consent	nera-private	yes	yes
+event	family-consent-daro	consent	daro-private	yes	yes
+event	family-consent-suri	consent	suri-private	yes	yes
+event	family-consent-shared	consent	couple	yes	yes
+event	family-topic-lio	topic	lio-private	family_visits
+event	family-topic-mira	topic	mira-private	family_visits
+event	family-topic-nera	topic	nera-private	family_visits
+event	family-topic-daro	topic	daro-private	family_visits
+event	family-topic-suri	topic	suri-private	family_visits
+event	family-topic-shared	topic	couple	family_visits
+event	family-story-lio	say	lio-private	lio	wish		2026-01-10	I want Sunday lunch with my parents most weeks.
+event	family-tentative-lio	hypothesis	lio-private	lio-pressure	lio-private-e1	-	Lio may expect a partner to join every Sunday; this is an unconfirmed interpretation.
+event	family-answer-lio	answer	lio-private	interpretation	Whether Lio pictures participation by both people	lio-private-e1	lio-pressure	family-partner	When you picture those Sundays, are you picturing both of you there?
+event	family-correction-lio	correct	lio-private	lio	lio-private-e1	wish		2026-01-10	I want to visit most weeks myself; Mira is welcome, and I do not expect her every week.
+event	family-story-mira	say	mira-private	mira	report	2026-01-04	2026-01-10	At the last lunch I enjoyed cooking with Nera, but I needed a quiet evening afterward.
+event	family-answer-mira	answer	mira-private	constraint	How Mira experiences an enjoyable but tiring visit	mira-private-e1	-	family-partner	What would help you decide when you have the energy for a visit?
+event	family-story-nera	say	nera-private	nera	wish		2026-01-10	Sunday lunches are one way I stay close to Lio. I would miss them if they became less frequent.
+event	family-answer-nera	answer	nera-private	hypothetical	How Nera would accommodate a different visiting rhythm	nera-private-e1	-	family-parent	If they visited less often than you hoped, what would you want to work out with them about staying close?
+event	family-story-daro	say	daro-private	daro	report	2025-12-20	2026-01-10	Mira calls me on Saturdays. When she was working that weekend, we spoke on Tuesday instead.
+event	family-answer-daro	answer	daro-private	episode	How Daro experienced a changed contact arrangement	daro-private-e1	-	family-parent	What made moving that call to Tuesday work for you?
+event	family-story-suri	say	suri-private	suri	report	2025-11-08	2026-01-10	I saw Lio tell his brother he could not help with a repair because he had already promised to help me move. I do not know how they arranged it afterward.
+event	family-answer-suri	answer	suri-private	summarize	Preserve the limit of Suri's firsthand account	suri-private-e1	-	family-friend	You saw him keep his commitment to you; the later arrangement with his brother remains outside your account.
+event	family-proposal-lio	proposal	lio-private	lio	lio-to-mira	mira	couple	I want to visit most weeks myself; I do not expect you to join every week.
+event	family-approval-lio	approve	lio	lio-to-mira	1	I want to visit most weeks myself; I do not expect you to join every week.
+event	family-delivery-lio	deliver	lio	lio-to-mira	1	2026-01-10
+event	family-proposal-mira	proposal	mira-private	mira	mira-to-lio	lio	couple	I enjoyed cooking together, and I sometimes need a quiet evening after a visit.
+event	family-approval-mira	approve	mira	mira-to-lio	1	I enjoyed cooking together, and I sometimes need a quiet evening after a visit.
+event	family-delivery-mira	deliver	mira	mira-to-lio	1	2026-01-10
+event	family-answer-couple	answer	couple	expectation	Whether both people understand the same visiting proposal	disclosure:lio-to-mira:1:couple,disclosure:mira-to-lio:1:couple	-	family-shared	What do each of you think this asks you to commit to?
+show	couple
+show	lio-private

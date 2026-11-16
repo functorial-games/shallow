@@ -1,0 +1,209 @@
+module Store
+
+import Data.Text
+import Data.List1
+import Data.Buffer
+import System.File
+import System.Directory
+import System.Errno
+import Types
+
+-- Synthetic, single-process Linux/Chez storage. The caller supplies a trusted
+-- absolute directory whose parents cannot be replaced by another user. This
+-- is not a symlink-safe vault or a multi-process compare-and-swap transaction.
+-- The lock makes overlapping IO fail closed; a crash can leave .lock requiring
+-- deliberate recovery. Same-directory rename preserves the old journal when
+-- writing or renaming the replacement fails. There is no power-loss/fsync claim.
+%foreign "C:rename,libc.so.6"
+rename_path : Text → Text → PrimIO Int
+
+%foreign "C:fflush,libc.so.6"
+flush_handle : FilePtr → PrimIO Int
+
+%foreign "C:fclose,libc.so.6"
+close_handle : FilePtr → PrimIO Int
+
+journal_header : Text
+journal_header = "YENTE-JOURNAL\t1"
+
+safe_character : Char → Bool
+safe_character character = not (character ≟ '\0' || character ≟ '\r' || character ≟ '\n')
+
+valid_command : Text → Bool
+valid_command command = not (command ≟ "") && all safe_character (unpack command)
+
+valid_component : Text → Bool
+valid_component component = not (component ≟ "" || component ≟ "." || component ≟ "..")
+
+valid_root : Text → Bool
+valid_root root =
+  all (\character => safe_character character && not (character ≟ '\t')) (unpack root) &&
+  case forget $ split (≟ '/') root of
+    "" :: component :: remaining => valid_component component && all valid_component remaining
+    _ => False
+
+public export
+encode_journal : List Text → Either Failure Text
+encode_journal commands =
+  if all valid_command commands
+     then Right $ unlines (journal_header :: commands)
+     else Left $ Invalid "journal commands must be nonempty single lines without CR or NUL"
+
+public export
+decode_journal : Text → Either Failure (List Text)
+decode_journal contents =
+  case lines contents of
+    header :: commands =>
+      if header ≟ journal_header && all valid_command commands &&
+         unlines (header :: commands) ≟ contents
+         then Right commands
+         else Left $ Invalid "journal framing, version, or command is corrupt"
+    _ => Left $ Invalid "journal header is missing"
+
+-- Strict UTF-8 validation at the byte boundary. E0/ED/F0/F4 restrictions reject
+-- overlong encodings, surrogate codepoints, and values above U+10FFFF.
+continuation : Int → Bool
+continuation byte = byte >= 128 && byte <= 191
+
+valid_utf8 : List Int → Bool
+valid_utf8 [] = True
+valid_utf8 (first :: remaining) =
+  if first <= 127 then valid_utf8 remaining else
+  if first >= 194 && first <= 223 then
+    case remaining of
+      second :: rest => continuation second && valid_utf8 rest
+      _ => False
+  else if first >= 224 && first <= 239 then
+    case remaining of
+      second :: third :: rest =>
+        continuation second && continuation third &&
+        (not (first ≟ 224) || second >= 160) &&
+        (not (first ≟ 237) || second <= 159) && valid_utf8 rest
+      _ => False
+  else if first >= 240 && first <= 244 then
+    case remaining of
+      second :: third :: fourth :: rest =>
+        continuation second && continuation third && continuation fourth &&
+        (not (first ≟ 240) || second >= 144) &&
+        (not (first ≟ 244) || second <= 143) && valid_utf8 rest
+      _ => False
+  else False
+
+-- Read bytes once, check the count, then decode those same bytes. A second text
+-- read could observe different contents and would weaken the encoding check.
+covering
+read_utf8 : Text → IO (Either FileError (Either Failure Text))
+read_utf8 path = do
+  opened ← openFile path Read
+  case opened of
+    Left failure => pure $ Left failure
+    Right handle => do
+      size_result ← fileSize handle
+      case size_result of
+        Left failure => do
+          closeFile handle
+          pure $ Left failure
+        Right size => do
+          allocated ← newBuffer size
+          case allocated of
+            Nothing => do
+              closeFile handle
+              pure $ Left FileReadError
+            Just buffer => do
+              read_result ← readBufferData handle buffer 0 size
+              closeFile handle
+              case read_result of
+                Left failure => pure $ Left failure
+                Right count =>
+                  if not (count ≟ size) then pure $ Right $ Left $ Invalid "short journal read"
+                  else do
+                    bytes ← bufferData' buffer
+                    case valid_utf8 (map cast bytes) of
+                      True => do
+                        contents ← getString buffer 0 size
+                        pure $ Right $ Right contents
+                      False => pure $ Right $ Left $ Invalid "journal is not strict UTF-8"
+
+directory_ready : Text → IO (Either Failure ())
+directory_ready root = do
+  created ← createDir root
+  case created of
+    Right () => pure $ Right ()
+    Left FileExists => do
+      opened ← openDir root
+      case opened of
+        Right directory => do
+          closeDir directory
+          pure $ Right ()
+        Left failure => pure $ Left $ Invalid $ "journal root is not accessible directory: " ++ show failure
+    Left failure => pure $ Left $ Invalid $ "cannot create journal root: " ++ show failure
+
+covering
+locked : Text → IO (Either Failure result) → IO (Either Failure result)
+locked root action = do
+  acquired ← createDir (root ++ "/.lock")
+  case acquired of
+    Left failure => pure $ Left $ Stale $ "journal lock unavailable; inspect concurrent writer or interrupted operation: " ++ show failure
+    Right () => do
+      result ← action
+      removeDir (root ++ "/.lock")
+      pure result
+
+covering
+load_existing : Text → IO (Either Failure (List Text))
+load_existing root = do
+  loaded ← read_utf8 (root ++ "/journal.tsv")
+  case loaded of
+    Right (Right contents) => pure $ decode_journal contents
+    Right (Left failure) => pure $ Left failure
+    Left FileNotFound => do
+      temporary ← read_utf8 (root ++ "/journal.new")
+      case temporary of
+        Left FileNotFound => pure $ Right []
+        Left failure => pure $ Left $ Invalid $ "cannot inspect unfinished journal: " ++ show failure
+        Right _ => pure $ Left $ Stale "unfinished journal without committed journal; explicit recovery required"
+    Left failure => pure $ Left $ Invalid $ "cannot read journal: " ++ show failure
+
+export covering
+load_journal : Text → IO (Either Failure (List Text))
+load_journal root =
+  if not (valid_root root) then pure $ Left $ Invalid "journal root must be a canonical absolute path"
+  else do
+    ready ← directory_ready root
+    case ready of
+      Left failure => pure $ Left failure
+      Right () => locked root (load_existing root)
+
+covering
+write_replacement : Text → Text → IO (Either Failure ())
+write_replacement root contents = do
+  opened ← openFile (root ++ "/journal.new") WriteTruncate
+  case opened of
+    Left failure => pure $ Left $ Invalid $ "cannot open replacement journal: " ++ show failure
+    Right handle@(FHandle pointer) => do
+      written ← fPutStr handle contents
+      flushed ← primIO $ flush_handle pointer
+      closed ← primIO $ close_handle pointer
+      case written of
+        Left failure => pure $ Left $ Invalid $ "cannot write replacement journal: " ++ show failure
+        Right () =>
+          if not (flushed ≟ 0 && closed ≟ 0) then pure $ Left $ Invalid "replacement journal flush or close failed"
+          else do
+            renamed ← primIO $ rename_path (root ++ "/journal.new") (root ++ "/journal.tsv")
+            case renamed ≟ 0 of
+              True => pure $ Right ()
+              False => do
+                error_number ← getErrno
+                pure $ Left $ Invalid $ "cannot atomically replace journal: " ++ strerror error_number
+
+export covering
+save_journal : Text → List Text → IO (Either Failure ())
+save_journal root commands =
+  if not (valid_root root) then pure $ Left $ Invalid "journal root must be a canonical absolute path"
+  else case encode_journal commands of
+    Left failure => pure $ Left failure
+    Right contents => do
+      ready ← directory_ready root
+      case ready of
+        Left failure => pure $ Left failure
+        Right () => locked root (write_replacement root contents)

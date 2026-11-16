@@ -52,4 +52,21 @@ Implementation work must use the existing Flexible Pipes job and receipt path wi
 
 ## Current status
 
-Requirements only. No ingestion code, private vault, correction engine, replay runner, trained model, or deployed matchmaker is implemented by these documents.
+The [conversation prototype](conversation/README.md) implements a reusable
+Idriç state machine, fictional journal, attributed challenge catalog, and
+model-request/recorded-response boundary. It supports audience-scoped context,
+corrections, exact destination approvals, revocation and separate agreement
+confirmations. Its command controls are a demonstration facility rather than
+authentication. See its acceptance record for actual execution and limits;
+live inference and production private storage are separate unfinished work.
+
+The draft [PR #6](https://github.com/functorial-games/shallow/pull/6)
+contains a narrowly scoped [synthetic checked-Idriç replay](replay/README.md)
+for eight fixed fictional cases. Its actual compiler/runtime qualification
+depends on the exact-head workflow; structural fixture checks do not count as
+runtime execution. The replay is not a general conversational correction engine.
+
+No user ingestion, private vault, secure deployed permission enforcement,
+trained model, or matchmaker service exists here.
+Independent ai-ci and Flexible Pipes acceptance are not implied by an
+in-repository test.

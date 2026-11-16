@@ -1,0 +1,9 @@
+```json
+{
+  "move": "summarize",
+  "uncertainty": "What specific aspects of family visits are you curious about?",
+  "hypothesis_ids": [],
+  "challenge_id": "",
+  "wording": "Could you tell me more about your feelings towards family visits?"
+}
+```
