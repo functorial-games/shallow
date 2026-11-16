@@ -1,0 +1,8 @@
+state	EXECUTED
+model	Qwen/Qwen2.5-1.5B-Instruct
+revision	989aa7980e4cf806f80c7fef2b1adb7bc71aa306
+request_sha256	5182032072b75d4c8ed5b993062d793124b5b6680556d2f7285485563eac8293
+prompt_sha256	9483479a1441feca5ad8be179f5323a2126a0a019746f9c683381da461c9a1dc
+raw_response_sha256	e7f5f17952bc3232342322ab129f33a0e6965c8adb1eea4b16635abac55887ba
+input_tokens	1588
+output_tokens	80

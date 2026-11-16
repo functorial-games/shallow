@@ -33,3 +33,13 @@ setting from the existing foreign-model adapter, with an explicit Linux/x86_64
 and 12 GB physical-memory precondition. The slow run is not relabeled as PASS;
 its retained artifacts distinguish completed calls from missing ones. The
 driver now records model-load state and per-case progress as well as failures.
+
+The first completed float32 trial executed all nine calls and refused every
+output for fenced JSON and missing evidence_ids. Its raw outputs and receipts
+are retained under acceptance/first-live-refusal. It also exposed repeated
+bank openings and a question after topic deferral. These are actual failures,
+not positive dialogue examples. The next revision puts current accounts after
+bank metadata and the concrete output contract after the general policy. A
+literal `{` prefill controls syntax only; completion.txt contains the exact
+generated text, response-prefix.txt declares the prefix, and raw-response.txt
+is their exact concatenation, independently checked before plan admission.

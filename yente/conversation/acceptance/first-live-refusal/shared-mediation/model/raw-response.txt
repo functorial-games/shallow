@@ -1,0 +1,9 @@
+```json
+{
+  "move": "interpretation",
+  "uncertainty": "Whether Ari and Zev understand the same proposal and have room to decline.",
+  "hypothesis_ids": [],
+  "challenge_id": "family-shared",
+  "wording": "Can we infer how each person interprets the proposed family visit schedule?"
+}
+```

@@ -1,0 +1,9 @@
+```json
+{
+  "move": "interpretation",
+  "uncertainty": "What did the friend infer based on the situation described?",
+  "hypothesis_ids": [],
+  "challenge_id": "family-friend",
+  "wording": "Based on the observation, what inference can you make about how the siblings managed competing claims on their time?"
+}
+```

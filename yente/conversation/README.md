@@ -120,3 +120,11 @@ scope and deferral observations. Check-only and prepare-only execution do not
 establish inference. This small model qualifies wiring and reveals behavior;
 interpreting its wording and developing Yenta's voice require grounded review
 of the actual hosted transcript.
+
+The first completed trial and its real failures are retained in
+`acceptance/first-live-refusal/`. The adapter now declares the syntax-only `{`
+assistant prefill separately from the unmodified generated completion. The
+observer reconstructs the complete JSON from those exact bytes; it does not
+repair or replace a model answer. Bank metadata precedes the particular
+account, with eligible moves last, so the request does not end on a canned
+opening question.
