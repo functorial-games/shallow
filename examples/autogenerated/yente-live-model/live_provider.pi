@@ -256,11 +256,14 @@ def main() → None:
     arguments ∈ list[str] ← sys.argv
     if len(arguments) == 2 and arguments[1] == "check":
         selftest()
+    elif len(arguments) == 2 and arguments[1] == "host-check":
+        memory ∈ int ← cpu_memory()
+        print("YENTA_CPU_HOST_OK\tphysical_memory_bytes\t" + str(memory))
     elif len(arguments) == 6 and arguments[1] == "infer":
         runtime ∈ tuple[object, object] ← load_model()
         generate(arguments[2], arguments[3], arguments[4], runtime[0], runtime[1], arguments[5])
     else:
-        raise ValueError("usage: live_provider.pi check | infer REQUEST RESPONSE EVIDENCE scoped|bank")
+        raise ValueError("usage: live_provider.pi check|host-check | infer REQUEST RESPONSE EVIDENCE scoped|bank")
 
 namespace ∈ dict[str, object] ← globals()
 module_name ∈ str ← namespace.get("__name__", "")
