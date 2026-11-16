@@ -1,0 +1,126 @@
+"""Fictional fresh-inference sequence; only core-projected context reaches Qwen."""
+import sys
+import json
+import shutil
+import subprocess
+from pathlib import Path
+from builtins import ValueError, Exception, globals, object
+from live_provider import load_model, generate, selftest, digest, write, present
+
+SETUP ∈ str ← "person\tAri\nperson\tZev\nperson\tMira\nperson\tFen\nsession\tprivateA\tpartner\tAri\tAri\tUnderstand this person's own expectations\nsession\tprivateB\tpartner\tZev\tZev\tUnderstand this person's own experience\nsession\tparentA\tparent\tAri\tMira\tUnderstand the parent's expectations and accommodation\nsession\tfriendA\tfriend\tAri\tFen\tUnderstand only firsthand observations\nsession\tsharedAB\tshared\tAri\tAri,Zev\tCompare explicitly authorized statements\nconsent\tprivateA\tyes\tyes\nconsent\tprivateB\tyes\tyes\nconsent\tparentA\tyes\tyes\nconsent\tfriendA\tyes\tyes\nconsent\tsharedAB\tyes\tyes\ntopic\tprivateA\tfamily_visits\ntopic\tprivateB\tfamily_visits\ntopic\tparentA\tfamily_visits\ntopic\tfriendA\tfamily_visits\ntopic\tsharedAB\tfamily_visits\n"
+
+def capture(arguments ∈ list[str], log ∈ str) → tuple[int, str]:
+    observed ∈ object ← subprocess.run(arguments, capture_output=True, text=True, check=False, timeout=300)
+    status ∈ int ← observed.returncode
+    output ∈ str ← observed.stdout
+    error ∈ str ← observed.stderr
+    write(log + ".stdout", output)
+    write(log + ".stderr", error)
+    return (status, output)
+
+def require_success(result ∈ tuple[int, str]) → str:
+    if result[0] != 0:
+        raise ValueError("Candidate process failed: " + result[1])
+    output ∈ str ← result[1]
+    lines ∈ list[str] ← output.splitlines()
+    for line in lines:
+        is_error ∈ bool ← line.startswith("ERR\t")
+        if is_error:
+            raise ValueError("Candidate refused command: " + line)
+    return output
+
+def apply(candidate ∈ str, state ∈ str, materials ∈ str, commands ∈ str, log ∈ str) → str:
+    command_file ∈ str ← log + ".commands.tsv"
+    write(command_file, commands)
+    observed ∈ tuple[int, str] ← capture([candidate, "script", state, materials, command_file], log)
+    return require_success(observed)
+
+def run_trial(candidate ∈ str, materials ∈ str, destination ∈ str, inference ∈ bool) → None:
+    absolute ∈ bool ← Path(destination).is_absolute()
+    existing ∈ bool ← Path(destination).exists()
+    if not absolute or existing:
+        raise ValueError("Trial needs a fresh absolute output directory")
+    Path(destination).mkdir(parents=True)
+    state ∈ str ← destination + "/fictional-state"
+    apply(candidate, state, materials, SETUP, destination + "/setup")
+    apply(candidate, state, materials, "person\tHidden\nsession\thidden\tfriend\tAri\tHidden\tAn unrelated private account\nconsent\thidden\tyes\tyes\nsay\thidden\tHidden\treport\t-\t2026-01-10\tPRIVATE-CONFIDENCE-TULIP-417\n", destination + "/hidden-control")
+    steps ∈ list[tuple[str, str, str]] ← [
+        ("partner-opening", "privateA", "say\tprivateA\tAri\twish\t-\t2026-01-10\tI promised my parents I would come for Sunday lunch most weeks.\n"),
+        ("other-partner", "privateB", "say\tprivateB\tZev\treport\t2026-01-04\t2026-01-10\tI enjoyed cooking with Mira at lunch, but I needed a quiet evening afterward. I would not want every Sunday planned for me.\n"),
+        ("parent-opening", "parentA", "say\tparentA\tMira\twish\t-\t2026-01-10\tSunday lunch is how I stay close to Ari. I would miss it if they came less often, but I want to understand what works for them.\n"),
+        ("friend-opening", "friendA", "say\tfriendA\tFen\treport\t2025-11-08\t2026-01-10\tI saw Ari tell a sibling he could not help with a repair because he had already promised to help me move. I do not know what they arranged afterward.\n"),
+        ("partner-answer", "privateA", "say\tprivateA\tAri\treport\t-\t2026-01-10\tThe lunches are enjoyable, but train fare is already difficult for me. I cannot afford an additional weekly journey for both of us.\n"),
+        ("partner-correction", "privateA", "correct\tprivateA\tAri\tprivateA-e1\twish\t-\t2026-01-10\tI mean that I want to go myself most weeks; I am not promising Zev's time and I do not expect Zev to come every week.\n"),
+        ("parent-deferral", "parentA", "defer\tparentA\tfamily_visits\n"),
+        ("shared-mediation", "sharedAB", "proposal\tprivateA\tAri\tfrom-Ari\tZev\tsharedAB\tI want to visit myself most weeks; I do not expect you every week.\napprove\tAri\tfrom-Ari\t1\tI want to visit myself most weeks; I do not expect you every week.\ndeliver\tAri\tfrom-Ari\t1\t2026-01-10\nproposal\tprivateB\tZev\tfrom-Zev\tAri\tsharedAB\tI enjoy some lunches, and sometimes need a quiet evening afterward.\napprove\tZev\tfrom-Zev\t1\tI enjoy some lunches, and sometimes need a quiet evening afterward.\ndeliver\tZev\tfrom-Zev\t1\t2026-01-10\n")
+    ]
+    placeholder ∈ object ← object()
+    runtime ∈ tuple[object, object] ← (placeholder, placeholder)
+    baseline_status ∈ str ← "NOT_RUN"
+    if inference:
+        runtime ← load_model()
+    results ∈ list[str] ← ["case_id\tsession\tinference\tadmission\twording"]
+    failures ∈ int ← 0
+    for step in steps:
+        identifier ∈ str ← step[0]
+        session ∈ str ← step[1]
+        directory ∈ str ← destination + "/" + identifier
+        Path(directory).mkdir()
+        apply(candidate, state, materials, step[2], directory + "/input")
+        request ∈ str ← directory + "/request.txt"
+        response ∈ str ← directory + "/response.tsv"
+        require_success(capture([candidate, "request", state, materials, session, request], directory + "/request-process"))
+        raw ∈ str ← Path(request).read_text(encoding="utf-8", errors="strict")
+        presentation ∈ tuple[str, str] ← present(raw)
+        write(directory + "/prepared-context.json", presentation[1])
+        if identifier == "partner-opening":
+            shutil.copytree(state, destination + "/bank-state")
+        if inference:
+            try:
+                generate(request, response, directory + "/model", runtime[0], runtime[1], "scoped")
+                admitted ∈ tuple[int, str] ← capture([candidate, "accept", state, materials, session, request, response], directory + "/admission")
+                spoken ∈ str ← require_success(admitted)
+                if not spoken.startswith("YENTA\t" + session + "\t"):
+                    raise ValueError("Admission emitted no Yenta reply")
+                line ∈ str ← spoken.strip()
+                parts ∈ list[str] ← line.split("\t", 3)
+                results.append(identifier + "\t" + session + "\tEXECUTED\tACCEPTED\t" + parts[3])
+            except Exception as error:
+                failures ← failures + 1
+                write(directory + "/failure.txt", str(error) + "\n")
+                reason ∈ str ← str(error).replace("\n", " ").replace("\t", " ")
+                results.append(identifier + "\t" + session + "\tINSPECT_ARTIFACT\tREFUSED\t" + reason)
+        else:
+            results.append(identifier + "\t" + session + "\tNOT_RUN\tNOT_RUN\tprepared only")
+    if inference:
+        comparison ∈ str ← destination + "/bank-comparison"
+        Path(comparison).mkdir()
+        original_request ∈ str ← destination + "/partner-opening/request.txt"
+        baseline_response ∈ str ← comparison + "/response.tsv"
+        try:
+            generate(original_request, baseline_response, comparison + "/model", runtime[0], runtime[1], "bank")
+            require_success(capture([candidate, "accept", destination + "/bank-state", materials, "privateA", original_request, baseline_response], comparison + "/admission"))
+            baseline_status ← "ACCEPTED"
+        except Exception as error:
+            baseline_status ← "REFUSED"
+            write(comparison + "/failure.txt", str(error) + "\n")
+    joined ∈ str ← "\n".join(results)
+    write(destination + "/results.tsv", joined + "\n")
+    write(destination + "/summary.tsv", "evidence_class\t" + ("FRESH_MODEL_INFERENCE" if inference else "PREPARATION_ONLY") + "\nfailed_scoped_cases\t" + str(failures) + "\nbank_comparison_admission\t" + baseline_status + "\nvoice_quality\tREQUIRES_REVIEW\n")
+    if failures != 0:
+        raise ValueError("Fresh model trial retained refused cases: " + str(failures))
+    print("YENTA_LIVE_STRUCTURAL_OK" if inference else "YENTA_LIVE_PREPARATION_OK")
+
+def main() → None:
+    arguments ∈ list[str] ← sys.argv
+    if len(arguments) == 2 and arguments[1] == "check":
+        selftest()
+    elif len(arguments) == 5 and (arguments[1] == "prepare" or arguments[1] == "trial"):
+        run_trial(arguments[2], arguments[3], arguments[4], arguments[1] == "trial")
+    else:
+        raise ValueError("usage: live_trial.pi check | prepare|trial CANDIDATE MATERIALS FRESH_OUTPUT")
+
+namespace ∈ dict[str, object] ← globals()
+module_name ∈ str ← namespace.get("__name__", "")
+if module_name == "__main__":
+    main()
