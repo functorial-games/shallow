@@ -4,6 +4,7 @@ import json
 import hashlib
 import platform
 import time
+import os
 from pathlib import Path
 from builtins import ValueError, Exception, globals, list, dict, type, zip, sorted, any, all
 
@@ -152,7 +153,20 @@ def response_tsv(raw ∈ str) → str:
     joined ∈ str ← "\t".join(fields)
     return joined + "\n"
 
+def cpu_memory() → int:
+    system ∈ str ← platform.system()
+    machine ∈ str ← platform.machine()
+    if system != "Linux" or machine != "x86_64":
+        raise ValueError("This trial requires its declared Linux x86_64 CPU host")
+    page_bytes ∈ int ← os.sysconf("SC_PAGE_SIZE")
+    pages ∈ int ← os.sysconf("SC_PHYS_PAGES")
+    memory ∈ int ← page_bytes * pages
+    if memory < 12000000000:
+        raise ValueError("Pinned float32 trial requires at least 12 GB physical memory; observed bytes: " + str(memory))
+    return memory
+
 def load_model() → tuple[object, object]:
+    physical_memory ∈ int ← cpu_memory()
     import torch
     from transformers import AutoTokenizer, AutoModelForCausalLM
     from huggingface_hub import HfApi
@@ -163,7 +177,7 @@ def load_model() → tuple[object, object]:
     torch.set_num_threads(2)
     torch.manual_seed(1701)
     tokenizer ∈ object ← AutoTokenizer.from_pretrained(MODEL, revision=REVISION, trust_remote_code=False)
-    model ∈ object ← AutoModelForCausalLM.from_pretrained(MODEL, revision=REVISION, torch_dtype=torch.bfloat16, attn_implementation="eager", trust_remote_code=False)
+    model ∈ object ← AutoModelForCausalLM.from_pretrained(MODEL, revision=REVISION, torch_dtype=torch.float32, attn_implementation="eager", trust_remote_code=False)
     model.eval()
     return (tokenizer, model)
 
@@ -194,7 +208,7 @@ def generate(request_path ∈ str, response_path ∈ str, evidence_root ∈ str,
     write(evidence_root + "/presented-context.json", data)
     write(evidence_root + "/prompt.txt", prompt)
     write(evidence_root + "/input-token-ids.json", json.dumps(input_ids.tolist()))
-    identity ∈ dict[str, object] ← {"model": MODEL, "model_revision": REVISION, "tokenizer_revision": REVISION, "mode": mode, "runtime": "Ithon/Transformers/Torch", "torch": torch.__version__, "transformers": transformers.__version__, "huggingface_hub": huggingface_hub.__version__, "platform": platform.platform(), "dtype": "bfloat16", "device": "cpu", "attention": "eager", "threads": 2, "seed": 1701, "do_sample": False, "max_new_tokens": 256, "truncation": False, "request_sha256": digest(raw.encode()), "prompt_sha256": digest(prompt.encode()), "adapter_sha256": digest(Path(SOURCE_PATH).read_bytes())}
+    identity ∈ dict[str, object] ← {"model": MODEL, "model_revision": REVISION, "tokenizer_revision": REVISION, "mode": mode, "runtime": "Ithon/Transformers/Torch", "torch": torch.__version__, "transformers": transformers.__version__, "huggingface_hub": huggingface_hub.__version__, "platform": platform.platform(), "physical_memory_bytes": cpu_memory(), "dtype": "float32", "device": "cpu", "attention": "eager", "threads": 2, "seed": 1701, "do_sample": False, "max_new_tokens": 256, "truncation": False, "request_sha256": digest(raw.encode()), "prompt_sha256": digest(prompt.encode()), "adapter_sha256": digest(Path(SOURCE_PATH).read_bytes())}
     write(evidence_root + "/identity.json", json.dumps(identity, indent=2))
     started ∈ float ← time.monotonic()
     with torch.inference_mode():

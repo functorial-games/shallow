@@ -1,0 +1,26 @@
+YENTE-JOURNAL	1
+person	Ari
+person	Zev
+person	Mira
+person	Fen
+session	privateA	partner	Ari	Ari	understand expectations
+session	privateB	partner	Zev	Zev	understand expectations
+session	parentA	parent	Ari	Mira	family participation
+session	friendA	friend	Ari	Fen	firsthand observations
+session	sharedAB	shared	Ari	Ari,Zev	compare authorized proposals
+consent	privateA	yes	yes
+consent	privateB	yes	yes
+consent	parentA	yes	yes
+consent	friendA	yes	yes
+consent	sharedAB	yes	yes
+topic	privateA	family_visits
+topic	privateB	family_visits
+topic	parentA	family_visits
+topic	friendA	family_visits
+topic	sharedAB	family_visits
+say	privateA	Ari	report	-	now	I visit on Sundays.
+say	privateB	Zev	report	-	now	I enjoy cooking.
+hypothesis	privateA	guess	privateA-e1	-	WITHDRAWN-TENTATIVE-CONTROL
+answer	privateA	summarize	What was understood	-	-	-	UNCITED-WITHDRAWN-REPLY
+answer	privateB	summarize	What was understood	-	-	-	UNRELATED-REPLY-CONTROL
+withdraw	privateA	Ari	guess

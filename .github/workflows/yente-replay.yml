@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: isomorphisms/ai-ci
-          ref: e3a27060d0ae23936e38d289fa11485c7e10b63a
+          ref: d5a1671df3bdbee12f74dfeaec9048e9ce5860d5
           path: .toolchain/ai-ci
           persist-credentials: false
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683

@@ -26,3 +26,10 @@ https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct
 
 The Ithon parser/type receipt and actual inference outcome are recorded after
 execution. Local stdlib controls do not count as model inference.
+
+The first hosted BF16 trial took over fifteen minutes in the inference stage
+without a completed result. It is superseded by the established float32 CPU
+setting from the existing foreign-model adapter, with an explicit Linux/x86_64
+and 12 GB physical-memory precondition. The slow run is not relabeled as PASS;
+its retained artifacts distinguish completed calls from missing ones. The
+driver now records model-load state and per-case progress as well as failures.

@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from builtins import ValueError, Exception, globals, object
-from live_provider import load_model, generate, selftest, digest, write, present
+from live_provider import load_model, generate, selftest, digest, write, present, cpu_memory
 
 SETUP ∈ str ← "person\tAri\nperson\tZev\nperson\tMira\nperson\tFen\nsession\tprivateA\tpartner\tAri\tAri\tUnderstand this person's own expectations\nsession\tprivateB\tpartner\tZev\tZev\tUnderstand this person's own experience\nsession\tparentA\tparent\tAri\tMira\tUnderstand the parent's expectations and accommodation\nsession\tfriendA\tfriend\tAri\tFen\tUnderstand only firsthand observations\nsession\tsharedAB\tshared\tAri\tAri,Zev\tCompare explicitly authorized statements\nconsent\tprivateA\tyes\tyes\nconsent\tprivateB\tyes\tyes\nconsent\tparentA\tyes\tyes\nconsent\tfriendA\tyes\tyes\nconsent\tsharedAB\tyes\tyes\ntopic\tprivateA\tfamily_visits\ntopic\tprivateB\tfamily_visits\ntopic\tparentA\tfamily_visits\ntopic\tfriendA\tfamily_visits\ntopic\tsharedAB\tfamily_visits\n"
 
@@ -58,7 +58,16 @@ def run_trial(candidate ∈ str, materials ∈ str, destination ∈ str, inferen
     runtime ∈ tuple[object, object] ← (placeholder, placeholder)
     baseline_status ∈ str ← "NOT_RUN"
     if inference:
-        runtime ← load_model()
+        memory ∈ int ← cpu_memory()
+        write(destination + "/model-host.tsv", "system\tLinux\nmachine\tx86_64\nphysical_memory_bytes\t" + str(memory) + "\ndtype\tfloat32\n")
+        write(destination + "/model-load.tsv", "state\tLOADING\n")
+        try:
+            runtime ← load_model()
+        except Exception as error:
+            load_reason ∈ str ← str(error).replace("\n", " ").replace("\t", " ")
+            write(destination + "/model-load.tsv", "state\tREFUSED\nreason\t" + load_reason + "\n")
+            raise error
+        write(destination + "/model-load.tsv", "state\tLOADED\n")
     results ∈ list[str] ← ["case_id\tsession\tinference\tadmission\twording"]
     failures ∈ int ← 0
     for step in steps:
@@ -76,6 +85,7 @@ def run_trial(candidate ∈ str, materials ∈ str, destination ∈ str, inferen
         if identifier == "partner-opening":
             shutil.copytree(state, destination + "/bank-state")
         if inference:
+            print("YENTA_LIVE_CASE_BEGIN\t" + identifier, flush=True)
             try:
                 generate(request, response, directory + "/model", runtime[0], runtime[1], "scoped")
                 admitted ∈ tuple[int, str] ← capture([candidate, "accept", state, materials, session, request, response], directory + "/admission")
@@ -85,11 +95,13 @@ def run_trial(candidate ∈ str, materials ∈ str, destination ∈ str, inferen
                 line ∈ str ← spoken.strip()
                 parts ∈ list[str] ← line.split("\t", 3)
                 results.append(identifier + "\t" + session + "\tEXECUTED\tACCEPTED\t" + parts[3])
+                print("YENTA_LIVE_CASE_ACCEPTED\t" + identifier, flush=True)
             except Exception as error:
                 failures ← failures + 1
                 write(directory + "/failure.txt", str(error) + "\n")
                 reason ∈ str ← str(error).replace("\n", " ").replace("\t", " ")
                 results.append(identifier + "\t" + session + "\tINSPECT_ARTIFACT\tREFUSED\t" + reason)
+                print("YENTA_LIVE_CASE_REFUSED\t" + identifier, flush=True)
         else:
             results.append(identifier + "\t" + session + "\tNOT_RUN\tNOT_RUN\tprepared only")
     if inference:

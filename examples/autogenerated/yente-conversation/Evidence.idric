@@ -74,7 +74,11 @@ withdraw_entries : List (Key HypothesisKey) → List (Key EvidenceKey) → State
 withdraw_entries roots corrected state =
   let affected = dependency_closure (length (hypotheses state)) roots (hypotheses state)
       updated_hypotheses = map (deactivate_hypothesis affected) (hypotheses state)
-      touched = map evidence_session (filter (\item => has_key (evidence_id item) corrected) (evidence state))
+      evidence_sessions = map evidence_session (filter (\item => has_key (evidence_id item) corrected) (evidence state))
+      hypothesis_sessions = map hypothesis_session (filter (\item => has_key (hypothesis_id item) affected) (hypotheses state))
+      -- A reply may use an exposed interpretation without declaring a citation.
+      -- Drop prior wording in the affected session; retain accounts and audit.
+      touched = nubBy same_key (evidence_sessions ++ hypothesis_sessions)
       updated_plans = map (deactivate_plan affected corrected touched) (plans state)
   in { hypotheses := updated_hypotheses, plans := updated_plans } state
 
