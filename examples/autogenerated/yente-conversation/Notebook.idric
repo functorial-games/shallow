@@ -1,0 +1,112 @@
+module Notebook
+
+import Data.List
+import Data.Maybe
+import Data.Text
+import Types
+
+export
+axes_in : Key SessionKey → State → List Dimension
+axes_in target state = filter (\axis => same_key target (intake axis)) (dimensions state)
+
+export
+find_axis : Key SessionKey → Text → State → Maybe Dimension
+find_axis target identifier state = find (\axis => axis_id axis ≟ identifier) (axes_in target state)
+
+export
+private_intake : Session → Bool
+private_intake session = case participants session of
+  [owner] => same_key owner (role_subject session) && audience_role session /= "shared"
+  _ => False
+
+export
+is_question : TurnPlan → Bool
+is_question plan = plan_delivered plan && elem (move_name (planned_move plan))
+  ["episode", "expectation", "constraint", "hypothetical", "interpretation", "revisit", "disclosure"]
+
+export
+notes_for : Dimension → State → List (Reading, Hypothesis)
+notes_for axis state = mapMaybe current (readings state)
+  where
+    current : Reading → Maybe (Reading, Hypothesis)
+    current note =
+      if not (same_key (reading_session note) (intake axis)) || dimension_id note /= axis_id axis then Nothing
+      else do
+        hypothesis ← find (\item => same_key (interpretation note) (hypothesis_id item) && hypothesis_active item) (hypotheses state)
+        Just (note, hypothesis)
+
+export
+inquiry_sources : Dimension → Text → State → List Hypothesis
+inquiry_sources axis gap state =
+  map snd (filter (\pair => unresolved (fst pair) ≟ gap) (notes_for axis state))
+
+export
+bound_text : Maybe Integer → Text
+bound_text = maybe "*" show
+
+csv : List Text → Text
+csv = concat . intersperse ","
+
+export
+inquiries : Session → State → List (Dimension, Text)
+inquiries session state =
+  if not (private_intake session && discussion_allowed session && retention_allowed session) ||
+     elem (topic session) (deferred_topics session) then []
+  else filter (not . asked) $ concatMap gaps (filter (\axis => not (any (\tag => elem tag (deferred_topics session)) (tags axis))) (axes_in (session_id session) state))
+  where
+    asked : (Dimension, Text) → Bool
+    asked (axis, gap) = any (\plan => same_key (session_id session) (plan_session plan) &&
+      target_uncertainty plan ≟ ("axis:" ++ axis_id axis) && wording plan ≟ gap && plan_active plan && plan_delivered plan) (plans state)
+    gaps : Dimension → List (Dimension, Text)
+    gaps axis = case notes_for axis state of
+      [] => [(axis, open_question axis)]
+      current => map (\pair => (axis, unresolved (fst pair))) current
+
+axis_rows : State → Dimension → List (List Text)
+axis_rows state axis =
+  let current = notes_for axis state
+      header = ["dimension", axis_id axis, axis_name axis, csv (tags axis),
+                if null current then "unknown" else "tentative", open_question axis]
+  in header :: map note_row current
+  where
+    note_row : (Reading, Hypothesis) → List Text
+    note_row (note, hypothesis) = ["note", axis_id axis, note_key note,
+      key_text (interpretation note), csv (map key_text (support hypothesis)), csv (map key_text (depends_on hypothesis)),
+      bound_text (lower_bound (bounds note)), bound_text (upper_bound (bounds note)),
+      claim hypothesis, unresolved note]
+
+export
+profile_rows : Session → State → List (List Text)
+profile_rows session state =
+  if not (private_intake session && retention_allowed session) then [] else
+    let target = session_id session
+        reviews = filter (\review => same_key target (review_session review)) (source_reviews state)
+        links = filter (\link => any (\item => same_key target (evidence_session item) &&
+                        same_key (response link) (evidence_id item) && not (superseded item)) (evidence state) &&
+                        any (\plan => same_key (question link) (plan_id plan) && plan_active plan) (plans state)) (reply_links state)
+    in concatMap (axis_rows state) (axes_in target state) ++
+       map (\review => ["source-under-review", key_text (basis review), csv (map key_text (affected_accounts review))]) reviews ++
+       map (\link => ["reply-to", key_text (response link), key_text (question link), key_text (heard_through link)]) links ++
+       map (\pair => ["investigate", axis_id (fst pair), snd pair]) (inquiries session state)
+
+-- Audit links follow question delivery order even when replies arrive out of order.
+-- The audit may contain withdrawn wording and never enters the live model request.
+export
+thread_rows : Key SessionKey → State → List (List Text)
+thread_rows target state = walk "-" (filter (\plan => same_key target (plan_session plan) && is_question plan) (plans state))
+  where
+    answers : Key PlanKey → List (List Text)
+    answers identifier = mapMaybe answer_row (reply_links state)
+      where
+        answer_row : ReplyLink → Maybe (List Text)
+        answer_row link = if not (same_key identifier (question link)) then Nothing else do
+          item ← find (\entry => same_key (response link) (evidence_id entry)) (evidence state)
+          Just ["reply", key_text identifier, key_text (evidence_id item), key_text (heard_through link), key_text (speaker item),
+                kind_name (account_kind item), report_time item, if superseded item then "superseded" else "recorded", passage item]
+    walk : Text → List TurnPlan → List (List Text)
+    walk previous [] = []
+    walk previous (plan :: later) =
+      let identifier = key_text (plan_id plan)
+          following = maybe "-" (key_text . plan_id) (head' later)
+      in [["question", identifier, previous, following, if plan_active plan then "active" else "withdrawn", wording plan]] ++
+         answers (plan_id plan) ++ walk identifier later

@@ -79,3 +79,30 @@ Fresh model inference, automated natural-language interpretation, subjective
 voice quality, production private storage, deployment and physical-device
 behavior remain unqualified. Recorded responses are explicitly authored
 fictional material, not observations of a real provider call.
+
+## Person-model mock
+
+The private intake session owns an open set of dimension IDs for its participant.
+An optional name and tags describe a dimension. A keyed, tentative note links it
+to evidence and can carry a possibly unbounded real interval with integer
+endpoints. Several readings may coexist. A spoken answer has no operation that
+turns it into a measured coordinate. A finite integer covector maps the current
+box to an interval. Missing bounds propagate through nonzero coefficients.
+
+A reply points to a delivered question in the same intake. Neighbours are
+derived from delivery order. A source review records its reason and the prior
+accounts it affects, withdraws dependent interpretations and queues inquiry
+again. The existing journal replays all mutations. Model-request projection and
+recipient-specific disclosure remain separate operations.
+
+The person-model extension compiled and ran on Linux x86-64 with the pinned
+Idriç source at `2bce7677f513d711875e978bd6f5ad28b9e54d58` and Chez.
+The 52-command fictional fixture matched its expected transcript across a
+process restart. The recipient's request remained byte-identical through a
+source review. Additional local checks exercised stale request refusal, exact
+reply retry, correction of the review basis, an independent second intake, and
+a projection over a 1,024-dimension registry. The checked Ithon presentation
+adapter decoded the private before/after requests. The inherited Flexible Pipes
+conversation job and its pinned independent ai-ci observer passed locally.
+The new fixture is deterministic mock coverage. Interpretation, note attachment
+and source review are supplied decisions in this exercise.

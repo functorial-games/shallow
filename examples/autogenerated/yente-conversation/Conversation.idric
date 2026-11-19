@@ -7,6 +7,7 @@ import Types
 import Audience
 import Evidence
 import Challenges
+import Notebook
 
 public export
 model_request : Key SessionKey → List Challenge → Text → State → Either Failure Text
@@ -22,6 +23,15 @@ model_request target catalog policy state = do
       concat (map challenge_context (eligible_challenges session catalog)) ++
       context ++ row ["eligible-moves", concat (intersperse "," (map move_name (eligible_moves session)))])
 
+open_inquiry : Session → TurnPlan → State → Bool
+open_inquiry session plan state = move_name (planned_move plan) ≟ "revisit" &&
+  any grounded (inquiries session state)
+  where
+    grounded : (Dimension, Text) → Bool
+    grounded (axis, gap) = target_uncertainty plan ≟ ("axis:" ++ axis_id axis) && wording plan ≟ gap &&
+      all (\item => has_key (hypothesis_id item) (hypothesis_refs plan) &&
+          all (\key => has_key key (evidence_refs plan)) (support item)) (inquiry_sources axis gap state)
+
 validate_plan : Text → Session → TurnPlan → List Challenge → State → Either Failure State
 validate_plan context session plan catalog state =
       if context /= snapshot plan then Left (Stale "context changed")
@@ -31,7 +41,8 @@ validate_plan context session plan catalog state =
       else if not (valid_text (wording plan)) || not (valid_text (target_uncertainty plan)) then Left (Invalid "plan wording or uncertainty")
       else if not (all (\key => evidence_current (plan_session plan) key state) (evidence_refs plan)) then Left (Forbidden "plan evidence outside current context")
       else if not (all (\key => hypothesis_current (plan_session plan) key state) (hypothesis_refs plan)) then Left (Forbidden "plan hypothesis outside current context")
-      else if null (evidence_refs plan) && not (elem (move_name (planned_move plan)) ["pause", "summarize"]) then Left (Invalid "a question requires grounding")
+      else if not (null (axes_in (session_id session) state)) && isPrefixOf "axis:" (target_uncertainty plan) && not (open_inquiry session plan state) then Left (Forbidden "dimension inquiry no longer eligible")
+      else if null (evidence_refs plan) && not (open_inquiry session plan state) && not (elem (move_name (planned_move plan)) ["pause", "summarize"]) then Left (Invalid "a question requires grounding")
       else if challenge_ref plan /= "-" && not (any (\item => challenge_id item ≟ challenge_ref plan) (eligible_challenges session catalog)) then Left (Forbidden "challenge outside current audience/topic")
       else Right ({ plans := plans state ++ [plan] } state)
 

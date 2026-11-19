@@ -139,6 +139,45 @@ record Agreement where
   confirmations : List (Key PersonKey)
 
 public export
+record Bounds where
+  constructor Interval
+  lower_bound : Maybe Integer
+  upper_bound : Maybe Integer
+
+public export
+record Dimension where
+  constructor Axis
+  intake : Key SessionKey
+  axis_id : Text
+  axis_name : Text
+  tags : List Text
+  open_question : Text
+
+public export
+record Reading where
+  constructor Annotation
+  reading_session : Key SessionKey
+  dimension_id : Text
+  note_key : Text
+  interpretation : Key HypothesisKey
+  bounds : Bounds
+  unresolved : Text
+
+public export
+record ReplyLink where
+  constructor RepliesTo
+  question : Key PlanKey
+  response : Key EvidenceKey
+  heard_through : Key PlanKey
+
+public export
+record SourceReview where
+  constructor Reopen
+  review_session : Key SessionKey
+  basis : Key EvidenceKey
+  affected_accounts : List (Key EvidenceKey)
+
+public export
 record State where
   constructor ConversationState
   people : List (Key PersonKey)
@@ -150,9 +189,14 @@ record State where
   agreements : List Agreement
   event_receipts : List (Text, Text, Text)
 
+  dimensions : List Dimension
+  readings : List Reading
+  reply_links : List ReplyLink
+  source_reviews : List SourceReview
+
 public export
 empty_state : State
-empty_state = ConversationState [] [] [] [] [] [] [] []
+empty_state = ConversationState [] [] [] [] [] [] [] [] [] [] [] []
 
 public export
 data Failure = Invalid Text | Unknown Text | Forbidden Text | Stale Text

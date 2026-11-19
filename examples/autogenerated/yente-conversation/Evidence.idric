@@ -42,6 +42,13 @@ add_evidence item state =
       else if not (all (\person => has_key person (people state)) (subjects item)) then Left (Unknown "subject")
       else Right ({ evidence := evidence state ++ [item] } state)
 
+-- A new reading of a reviewed account needs the later context as well.
+-- An explicitly superseded review basis still makes the old account ambiguous.
+review_grounded : Hypothesis → SourceReview → Bool
+review_grounded item review =
+  not (any (\key => has_key key (affected_accounts review)) (support item)) ||
+  has_key (basis review) (support item)
+
 public export
 add_hypothesis : Hypothesis → State → Either Failure State
 add_hypothesis item state =
@@ -50,6 +57,7 @@ add_hypothesis item state =
   else if null (support item) then Left (Invalid "hypothesis requires evidence")
   else if not (all (\key => evidence_current (hypothesis_session item) key state) (support item)) then Left (Forbidden "hypothesis evidence outside current context")
   else if not (all (\key => hypothesis_current (hypothesis_session item) key state) (depends_on item)) then Left (Forbidden "hypothesis dependency outside current context")
+  else if not (all (review_grounded item) (source_reviews state)) then Left (Invalid "include the source review basis")
   else Right ({ hypotheses := hypotheses state ++ [item] } state)
 
 -- Dependencies may point only to existing hypotheses, so cycles cannot enter.
@@ -59,7 +67,7 @@ dependency_closure Z withdrawn entries = withdrawn
 dependency_closure (S fuel) withdrawn entries =
   let children = map hypothesis_id (filter (\item => any (\key => has_key key withdrawn) (depends_on item)) entries)
       next = nubBy same_key (withdrawn ++ children)
-  in dependency_closure fuel next entries
+  in if length next ≟ length withdrawn then withdrawn else dependency_closure fuel next entries
 
 deactivate_hypothesis : List (Key HypothesisKey) → Hypothesis → Hypothesis
 deactivate_hypothesis affected item = if has_key (hypothesis_id item) affected then { hypothesis_active := False } item else item
@@ -81,6 +89,15 @@ withdraw_entries roots corrected state =
       touched = nubBy same_key (evidence_sessions ++ hypothesis_sessions)
       updated_plans = map (deactivate_plan affected corrected touched) (plans state)
   in { hypotheses := updated_hypotheses, plans := updated_plans } state
+
+-- Reopen interpretations without superseding the person's words.
+public export
+reopen_source : SourceReview → State → State
+reopen_source review state =
+  let accounts = affected_accounts review
+      roots = map hypothesis_id (filter (\item => any (\key => has_key key accounts) (support item)) (hypotheses state))
+      revised = withdraw_entries roots accounts state
+  in { source_reviews := source_reviews state ++ [review] } revised
 
 public export
 invalidate_evidence : List (Key EvidenceKey) → State → State
@@ -111,4 +128,6 @@ replace_evidence actor target replacement state =
         added ← add_evidence replacement state
         let changed = { evidence := map (\item => if same_key target (evidence_id item) then { superseded := True } item else item) (evidence added) } added
         let roots = map hypothesis_id (filter (\item => has_key target (support item)) (hypotheses changed))
-        Right (withdraw_entries roots [target] changed)
+        let update_basis : SourceReview → SourceReview = \review => if same_key (basis review) target
+                            then { basis := evidence_id replacement } review else review
+        Right (withdraw_entries roots [target] ({ source_reviews := map update_basis (source_reviews changed) } changed))
