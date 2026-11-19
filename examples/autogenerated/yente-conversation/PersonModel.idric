@@ -1,0 +1,147 @@
+module PersonModel
+
+import Data.List
+import Data.Maybe
+import Data.Text
+import Types
+import Audience
+import Evidence
+import Notebook
+import Challenges
+
+export
+intake_session : Text → State → Either Failure Session
+intake_session identifier state = case find_session (Named identifier) state of
+  Nothing => Left (Unknown "intake session")
+  Just session =>
+    if private_intake session && retention_allowed session then Right session
+    else Left (Forbidden "person model needs a retention-enabled solo intake for the subject")
+
+export
+add_dimension : Text → Text → Text → List Text → Text → State → Either Failure State
+add_dimension target identifier name labels gap state = do
+  session ← intake_session target state
+  let key = session_id session
+  if any (\axis => not (same_key key (intake axis)) && same_owner session axis) (dimensions state)
+    then Left (Forbidden "person already has a designated intake")
+    else Right ()
+  if not (valid_name identifier && (name ≟ "" || valid_text name) && all valid_name labels && valid_text gap)
+    then Left (Invalid "dimension, name, tags or open question")
+    else Right ()
+  if isJust (find_axis key identifier state) then Left (Invalid "duplicate dimension in intake")
+    else Right ({ dimensions := dimensions state ++ [Axis key identifier name (nub labels) gap] } state)
+  where
+    same_owner : Session → Dimension → Bool
+    same_owner session axis = case find_session (intake axis) state of
+      Just other => same_key (role_subject session) (role_subject other)
+      Nothing => False
+
+export
+require_intake : Text → State → Either Failure Session
+require_intake target state = do
+  session ← intake_session target state
+  if null (axes_in (session_id session) state) then Left (Unknown "person model in this session")
+    else Right session
+
+integer_value : Text → Either Failure Integer
+integer_value value =
+  let digits = case unpack value of
+                 '-' :: rest => rest
+                 rest => rest
+  in if not (null digits) && all (\digit => digit >= '0' && digit <= '9') digits
+     then Right (cast value) else Left (Invalid "expected signed decimal integer")
+
+endpoint : Text → Either Failure (Maybe Integer)
+endpoint "*" = Right Nothing
+endpoint value = map Just (integer_value value)
+
+parse_bounds : Text → Text → Either Failure Bounds
+parse_bounds low high = do
+  lower ← endpoint low
+  upper ← endpoint high
+  case (lower, upper) of
+    (Just start, Just end) => if start > end then Left (Invalid "reversed interval") else Right (Interval lower upper)
+    _ => Right (Interval lower upper)
+
+export
+add_reading : Text → Text → Text → Text → Text → Text → Text → Text → Text → Text → State → Either Failure State
+add_reading target axis identifier field refs dependencies low high value gap state = do
+  session ← require_intake target state
+  let key = session_id session
+  if isNothing (find_axis key axis state) then Left (Unknown "dimension") else Right ()
+  if not (valid_text field && valid_text gap) then Left (Invalid "note field or remaining uncertainty") else Right ()
+  interval ← parse_bounds low high
+  let hypothesis = Tentative (Named identifier) key value (map Named (comma_fields refs)) (map Named (comma_fields dependencies)) True
+  updated ← add_hypothesis hypothesis state
+  Right ({ readings := readings state ++ [Annotation key axis field (hypothesis_id hypothesis) interval gap] } updated)
+
+export
+link_reply : Session → Key PlanKey → Evidence → State → Either Failure State
+link_reply session elicitor item state = do
+  let delivered = filter (\plan => same_key (session_id session) (plan_session plan) && is_question plan) (plans state)
+  case find (\plan => same_key elicitor (plan_id plan)) delivered of
+    Nothing => Left (Unknown "delivered question in intake")
+    Just _ => do
+      updated ← add_evidence item state
+      let last_question = foldl (\previous, plan => plan_id plan) elicitor delivered
+      Right ({ reply_links := reply_links state ++ [RepliesTo elicitor (evidence_id item) last_question] } updated)
+
+export
+review_accounts : Text → Text → State → Either Failure State
+review_accounts target reason state = do
+  session ← require_intake target state
+  let key = session_id session
+  let source = role_subject session
+  let reports = filter (\item => same_key source (speaker item) && kind_name (account_kind item) /= "author-approved") (visible_evidence key state)
+  let before = filter (\item => key_text (evidence_id item) /= reason) reports
+  if not (evidence_current key (Named reason) state && any (\item => key_text (evidence_id item) ≟ reason) reports)
+    then Left (Unknown "source review requires a current account from the person") else Right ()
+  if null before then Left (Invalid "no earlier accounts") else Right ()
+  if any (\review => key_text (basis review) ≟ reason) (source_reviews state) then Left (Invalid "review already recorded") else Right ()
+  let revised = reopen_source (Reopen key (Named reason) (map evidence_id before)) state
+  -- Pending wording may have depended on any old reading. Require a fresh
+  -- draft/approval. Actual past deliveries remain in the disclosure history.
+  let close_pending : Proposal → Proposal = \proposal => if same_key key (proposal_session proposal) && not (sent proposal)
+                         then { approved := False, revoked := True } proposal else proposal
+  Right ({ proposals := map close_pending (proposals revised) } revised)
+
+-- Enclose competing readings by their hull. Unknown has the entire real line.
+hull : Bounds → Bounds → Bounds
+hull first second = Interval
+  (min <$> lower_bound first <*> lower_bound second)
+  (max <$> upper_bound first <*> upper_bound second)
+
+axis_bounds : Dimension → State → Bounds
+axis_bounds axis state = case map (bounds . fst) (notes_for axis state) of
+  [] => Interval Nothing Nothing
+  first :: others => foldl hull first others
+
+scale_bounds : Integer → Bounds → Bounds
+scale_bounds 0 interval = Interval (Just 0) (Just 0)
+scale_bounds weight interval =
+  let lower = map (* weight) (lower_bound interval)
+      upper = map (* weight) (upper_bound interval)
+  in if weight < 0 then Interval upper lower else Interval lower upper
+
+add_bounds : Bounds → Bounds → Bounds
+add_bounds first second = Interval
+  ((+) <$> lower_bound first <*> lower_bound second)
+  ((+) <$> upper_bound first <*> upper_bound second)
+
+export
+project_axes : Text → List Text → State → Either Failure Bounds
+project_axes target terms state = do
+  session ← require_intake target state
+  coordinates ← traverse (term (session_id session)) terms
+  let axes = map fst coordinates
+  if length (nub axes) /= length axes then Left (Invalid "duplicate projection dimension")
+    else Right (foldl add_bounds (Interval (Just 0) (Just 0)) (map snd coordinates))
+  where
+    term : Key SessionKey → Text → Either Failure (Text, Bounds)
+    term key input = case fields '=' input of
+      [axis, coefficient] => do
+        weight ← integer_value coefficient
+        case find_axis key axis state of
+          Nothing => Left (Unknown "projection dimension")
+          Just dimension => Right (axis, scale_bounds weight (axis_bounds dimension state))
+      _ => Left (Invalid "projection term needs dimension=weight")

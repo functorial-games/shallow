@@ -235,6 +235,18 @@ deliver_disclosure actor identifier revision delivered_at state =
         else Right (replace_proposal ({ sent := True } proposal)
           ({ evidence := evidence state ++ additions } state))
 
+-- Same checks as delivery, restricted to a named recipient at one destination.
+export
+shareable : Session → Key PersonKey → Key SessionKey → State → List Proposal
+shareable source recipient destination state = filter permitted (proposals state)
+  where
+    permitted : Proposal → Bool
+    permitted proposal = same_key (session_id source) (proposal_session proposal) &&
+      holder_authorized (holder proposal) proposal state && approved proposal &&
+      not (revoked proposal || sent proposal) && has_key recipient (recipients proposal) &&
+      has_key destination (destinations proposal) && destination_has_person state recipient destination &&
+      valid_destinations (holder proposal) (recipients proposal) (destinations proposal) state
+
 agreement_actor : Key PersonKey → Agreement → State → Bool
 agreement_actor actor agreement state =
   has_key actor (people state) && has_key actor (affected agreement) &&
