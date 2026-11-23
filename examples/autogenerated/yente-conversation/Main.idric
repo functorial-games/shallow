@@ -1,0 +1,149 @@
+module Main
+
+import Data.Text
+import Data.List
+import Data.Maybe
+import Data.List1
+import System
+import System.File
+import Types
+import Audience
+import Challenges
+import Conversation
+import Commands
+import Store
+
+-- The selector and actor fields are explicit fictional-demo controls, not login.
+
+covering
+read_required : Text → IO Text
+read_required path = do
+  result ← readFile path
+  case result of
+    Left error => do
+      putStrLn ("ERR\tread\t" ++ path ++ ": " ++ show error)
+      exitFailure
+    Right content => pure content
+
+covering
+require : Either Failure value → IO value
+require (Right value) = pure value
+require (Left error) = do
+  putStrLn ("ERR\tstartup\t" ++ failure_text error)
+  exitFailure
+
+covering
+catalog_from : Text → IO (List Challenge)
+catalog_from directory = do
+  contents ← read_required (directory ++ "/challenges.tsv")
+  require (parse_catalog contents)
+
+covering
+load_state : Text → List Challenge → IO (List Text, State)
+load_state directory catalog = do
+  loaded ← load_journal directory
+  commands ← require loaded
+  state ← require (restore_commands catalog commands)
+  pure (commands, state)
+
+covering
+run_command : Text → List Challenge → Text → (List Text, State) → IO (List Text, State)
+run_command directory catalog command (journal, state) =
+  case apply_command catalog command state of
+    Left error => do
+      putStrLn ("ERR\t" ++ fromMaybe "command" (head' (fields '\t' command)) ++ "\t" ++ failure_text error)
+      pure (journal, state)
+    Right result =>
+      if changed result then do
+        saved ← save_journal directory (journal ++ [command])
+        case saved of
+          Left error => do
+            putStrLn ("ERR\tstore\t" ++ failure_text error)
+            exitFailure
+          Right _ => do
+            putStrLn (output result)
+            pure (journal ++ [command], new_state result)
+      else do
+        putStrLn (output result)
+        pure (journal, state)
+
+covering
+run_commands : Text → List Challenge → List Text → (List Text, State) → IO ()
+run_commands directory catalog [] state = pure ()
+run_commands directory catalog (command :: remaining) state = do
+  next ← run_command directory catalog command state
+  run_commands directory catalog remaining next
+
+covering
+interactive : Text → List Challenge → (List Text, State) → IO ()
+interactive directory catalog state = do
+  finished ← fEOF stdin
+  if finished then pure () else do
+    command ← getLine
+    if command ≟ "quit" then pure () else do
+      next ← run_command directory catalog command state
+      interactive directory catalog next
+
+covering
+request_file : Text → Text → Text → Text → IO ()
+request_file directory materials session destination = do
+  catalog ← catalog_from materials
+  (_, state) ← load_state directory catalog
+  policy ← read_required (materials ++ "/policy.md")
+  request ← require (model_request (Named session) catalog policy state)
+  result ← writeFile destination request
+  case result of
+    Left error => do
+      putStrLn ("ERR\trequest\t" ++ show error)
+      exitFailure
+    Right () => putStrLn ("OK\trequest\t" ++ session)
+
+covering
+accept_file : Text → Text → Text → Text → Text → IO ()
+accept_file directory materials session request_path response_path = do
+  catalog ← catalog_from materials
+  initial@(journal, state) ← load_state directory catalog
+  policy ← read_required (materials ++ "/policy.md")
+  previous ← read_required request_path
+  current ← require (model_request (Named session) catalog policy state)
+  response ← read_required response_path
+  case previous ≟ current of
+   False => do
+     putStrLn "ERR\taccept\tstale: model request changed"
+     exitFailure
+   True => do
+    context ← require (project_context (Named session) state)
+    case response_plan (Named session) context response state of
+      Left error => do
+        putStrLn ("ERR\taccept\t" ++ failure_text error)
+        exitFailure
+      Right plan =>
+        case accept_plan plan catalog state of
+          Left error => do
+            putStrLn ("ERR\taccept\t" ++ failure_text error)
+            exitFailure
+          Right _ => do
+            let command = concat (intersperse "\t" (["answer", session] ++ drop 1 (fields '\t' (trim response))))
+            _ ← run_command directory catalog command initial
+            pure ()
+
+covering
+main : IO ()
+main = do
+  arguments ← getArgs
+  case arguments of
+    [_, "script", directory, materials, commands_path] => do
+      catalog ← catalog_from materials
+      state ← load_state directory catalog
+      commands ← read_required commands_path
+      run_commands directory catalog (filter (\line => not (line ≟ "")) (lines commands)) state
+    [_, "demo", directory, materials] => do
+      catalog ← catalog_from materials
+      state ← load_state directory catalog
+      putStrLn "Yenta fictional demo: TSV commands; quit to finish. Participant selection is not authentication."
+      interactive directory catalog state
+    [_, "request", directory, materials, session, destination] => request_file directory materials session destination
+    [_, "accept", directory, materials, session, request, response] => accept_file directory materials session request response
+    _ => do
+      putStrLn "usage: yente-conversation script STATE_ROOT MATERIALS COMMANDS | demo STATE_ROOT MATERIALS | request STATE_ROOT MATERIALS SESSION OUTPUT | accept STATE_ROOT MATERIALS SESSION REQUEST RESPONSE"
+      exitFailure

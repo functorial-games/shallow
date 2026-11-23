@@ -1,0 +1,311 @@
+module Disclosure
+
+import Data.Text
+import Data.List
+import Types
+import Evidence
+
+-- Authority is supplied by the command/session boundary, never extracted from
+-- ordinary prose or inferred by a language model. These transitions are pure.
+
+valid_name : Key kind → Bool
+valid_name identifier =
+  let value = key_text identifier
+  in not (value ≟ "") && all valid_character (unpack value)
+  where
+    valid_character : Char → Bool
+    valid_character character =
+      (character >= 'a' && character <= 'z') ||
+      (character >= 'A' && character <= 'Z') ||
+      (character >= '0' && character <= '9') ||
+      character ≟ '_' || character ≟ '-' || character ≟ '.'
+
+nonblank : Text → Bool
+nonblank value = not (trim value ≟ "")
+
+distinct_people : List (Key PersonKey) → Bool
+distinct_people [] = True
+distinct_people (person :: remaining) =
+  not (has_key person remaining) && distinct_people remaining
+
+same_people : List (Key PersonKey) → List (Key PersonKey) → Bool
+same_people first second =
+  length first ≟ length second && all (\person => has_key person second) first
+
+distinct_destinations : List (Key SessionKey) → Bool
+distinct_destinations [] = True
+distinct_destinations (session :: remaining) =
+  not (has_key session remaining) && distinct_destinations remaining
+
+same_destinations : List (Key SessionKey) → List (Key SessionKey) → Bool
+same_destinations first second =
+  length first ≟ length second && all (\session => has_key session second) first
+
+find_session : Key SessionKey → State → Maybe Session
+find_session identifier state = find (\session => same_key identifier (session_id session)) (sessions state)
+
+find_proposal : Key ProposalKey → State → Maybe Proposal
+find_proposal identifier state = find (\proposal => same_key identifier (proposal_id proposal)) (proposals state)
+
+find_agreement : Key AgreementKey → State → Maybe Agreement
+find_agreement identifier state = find (\agreement => same_key identifier (agreement_id agreement)) (agreements state)
+
+replace_proposal : Proposal → State → State
+replace_proposal replacement state =
+  { proposals := map replace (proposals state) } state
+  where
+    replace : Proposal → Proposal
+    replace original =
+      if same_key (proposal_id replacement) (proposal_id original)
+        then replacement else original
+
+replace_agreement : Agreement → State → State
+replace_agreement replacement state =
+  { agreements := map replace (agreements state) } state
+  where
+    replace : Agreement → Agreement
+    replace original =
+      if same_key (agreement_id replacement) (agreement_id original)
+        then replacement else original
+
+valid_recipients : Key PersonKey → List (Key PersonKey) → State → Bool
+valid_recipients actor intended state =
+  not (null intended) && distinct_people intended &&
+  not (has_key actor intended) &&
+  all (\person => valid_name person && has_key person (people state)) intended
+
+holder_authorized : Key PersonKey → Proposal → State → Bool
+holder_authorized actor proposal state =
+  same_key actor (holder proposal) && has_key actor (people state) &&
+  case find_session (proposal_session proposal) state of
+    Nothing => False
+    -- The prototype cannot attribute one participant's rights over another
+    -- participant's confidence. Draft only from the holder's solo session.
+    Just session => same_people [actor] (participants session)
+
+destination_permitted : Key PersonKey → List (Key PersonKey) → Key SessionKey → State → Bool
+destination_permitted actor intended identifier state =
+  case find_session identifier state of
+    Nothing => False
+    Just session => not (null (participants session)) && retention_allowed session &&
+      any (\person => has_key person intended) (participants session) &&
+      all (\person => same_key person actor || has_key person intended) (participants session)
+
+destination_has_person : State → Key PersonKey → Key SessionKey → Bool
+destination_has_person state person identifier =
+  case find_session identifier state of
+    Nothing => False
+    Just session => has_key person (participants session)
+
+valid_destinations : Key PersonKey → List (Key PersonKey) → List (Key SessionKey) → State → Bool
+valid_destinations actor intended selected state =
+  not (null selected) && distinct_destinations selected &&
+  all (\identifier => valid_name identifier && destination_permitted actor intended identifier state) selected &&
+  all (\person => any (destination_has_person state person) selected) intended
+
+same_draft : Proposal → Proposal → Bool
+same_draft requested stored =
+  same_key (proposal_session requested) (proposal_session stored) &&
+  same_key (holder requested) (holder stored) &&
+  same_people (recipients requested) (recipients stored) &&
+  same_destinations (destinations requested) (destinations stored) &&
+  proposal_text requested ≟ proposal_text stored &&
+  proposal_revision requested ≟ proposal_revision stored
+
+public export
+draft_disclosure : Key PersonKey → Proposal → State → Either Failure State
+draft_disclosure actor proposal state =
+  if not (valid_name (proposal_id proposal)) || not (nonblank (proposal_text proposal))
+    then Left (Invalid "disclosure identifier or text")
+  else if not (holder_authorized actor proposal state)
+    then Left (Forbidden "only the holder in the source session may draft")
+  else if not (valid_recipients actor (recipients proposal) state)
+    then Left (Invalid "disclosure recipients")
+  else if not (valid_destinations actor (recipients proposal) (destinations proposal) state)
+    then Left (Forbidden "disclosure requires exact destinations covering only its recipients")
+  else if not (proposal_revision proposal ≟ 1) || approved proposal || revoked proposal || sent proposal
+    then Left (Invalid "new disclosure must be unapproved revision 1")
+  else case find_proposal (proposal_id proposal) state of
+    Nothing => Right ({ proposals := proposals state ++ [proposal] } state)
+    Just stored => if same_draft proposal stored
+      then Right state
+      else Left (Invalid "disclosure identifier already used")
+
+public export
+edit_disclosure : Key PersonKey → Key ProposalKey → Number → Text → List (Key PersonKey) → List (Key SessionKey) → State → Either Failure State
+edit_disclosure actor identifier revision text intended selected state =
+  case find_proposal identifier state of
+    Nothing => Left (Unknown "disclosure")
+    Just proposal =>
+      if not (holder_authorized actor proposal state)
+        then Left (Forbidden "only the holder may edit")
+      else if not (proposal_revision proposal ≟ revision)
+        then Left (Stale "disclosure revision")
+      else if sent proposal
+        then Left (Forbidden "delivered retelling cannot be edited")
+      else if not (nonblank text) || not (valid_recipients actor intended state)
+        then Left (Invalid "retelling text or recipients")
+      else if not (valid_destinations actor intended selected state)
+        then Left (Forbidden "retelling destinations")
+      else Right (replace_proposal
+        (Retelling identifier (proposal_session proposal) actor intended selected text
+          (S revision) False False False) state)
+
+public export
+approve_disclosure : Key PersonKey → Key ProposalKey → Number → Text → State → Either Failure State
+approve_disclosure actor identifier revision exact_text state =
+  case find_proposal identifier state of
+    Nothing => Left (Unknown "disclosure")
+    Just proposal =>
+      if not (holder_authorized actor proposal state)
+        then Left (Forbidden "only the holder may approve")
+      else if not (proposal_revision proposal ≟ revision) || not (proposal_text proposal ≟ exact_text)
+        then Left (Stale "approval must identify the exact text and revision")
+      else if revoked proposal
+        then Left (Forbidden "revoked approval requires a new proposal")
+      else if not (valid_destinations actor (recipients proposal) (destinations proposal) state)
+        then Left (Forbidden "approval destinations no longer permitted")
+      else Right (replace_proposal ({ approved := True } proposal) state)
+
+delivered_evidence_id : Proposal → Key SessionKey → Key EvidenceKey
+delivered_evidence_id proposal destination =
+  Named ("disclosure:" ++ key_text (proposal_id proposal) ++ ":" ++
+    show (proposal_revision proposal) ++ ":" ++ key_text destination)
+
+public export
+revoke_disclosure : Key PersonKey → Key ProposalKey → State → Either Failure State
+revoke_disclosure actor identifier state =
+  case find_proposal identifier state of
+    Nothing => Left (Unknown "disclosure")
+    Just proposal =>
+      if not (holder_authorized actor proposal state)
+        then Left (Forbidden "only the holder may revoke")
+      else
+        let copied = map (delivered_evidence_id proposal) (destinations proposal)
+            invalidated = Evidence.invalidate_evidence copied state
+        in Right (replace_proposal ({ approved := False, revoked := True } proposal) invalidated)
+
+recipient_destination : Proposal → Session → Bool
+recipient_destination proposal session =
+  has_key (session_id session) (destinations proposal) &&
+  not (null (participants session)) && retention_allowed session &&
+  any (\person => has_key person (recipients proposal)) (participants session) &&
+  all (\person => same_key person (holder proposal) || has_key person (recipients proposal)) (participants session)
+
+recipient_reachable : List Session → Key PersonKey → Bool
+recipient_reachable destinations person =
+  any (\session => has_key person (participants session)) destinations
+
+delivery_evidence : Proposal → Text → Session → Evidence
+delivery_evidence proposal delivered_at destination =
+  Attributed
+    (delivered_evidence_id proposal (session_id destination))
+    (session_id destination) (holder proposal) [holder proposal]
+    (proposal_text proposal) AuthorizedStatement "" delivered_at 1 False
+
+evidence_collision : List Evidence → Evidence → Bool
+evidence_collision existing entry =
+  any (\stored => same_key (evidence_id stored) (evidence_id entry)) existing
+
+public export
+deliver_disclosure : Key PersonKey → Key ProposalKey → Number → Text → State → Either Failure State
+deliver_disclosure actor identifier revision delivered_at state =
+  case find_proposal identifier state of
+    Nothing => Left (Unknown "disclosure")
+    Just proposal =>
+      if not (holder_authorized actor proposal state)
+        then Left (Forbidden "only the holder may request delivery")
+      else if not (proposal_revision proposal ≟ revision)
+        then Left (Stale "delivery revision")
+      else if revoked proposal || not (approved proposal)
+        then Left (Forbidden "delivery requires current approval")
+      else if sent proposal
+        then Right state
+      else if not (nonblank delivered_at)
+        then Left (Invalid "delivery time")
+      else if not (valid_destinations actor (recipients proposal) (destinations proposal) state)
+        then Left (Forbidden "delivery destinations no longer permitted")
+      else
+        let destinations = filter (recipient_destination proposal) (sessions state)
+            additions = map (delivery_evidence proposal delivered_at) destinations
+        in if not (all (recipient_reachable destinations) (recipients proposal))
+          then Left (Forbidden "every recipient needs an authorized retention-enabled session")
+        else if any (evidence_collision (evidence state)) additions
+          then Left (Invalid "delivery evidence identifier collision")
+        else Right (replace_proposal ({ sent := True } proposal)
+          ({ evidence := evidence state ++ additions } state))
+
+-- Same checks as delivery, restricted to a named recipient at one destination.
+export
+shareable : Session → Key PersonKey → Key SessionKey → State → List Proposal
+shareable source recipient destination state = filter permitted (proposals state)
+  where
+    permitted : Proposal → Bool
+    permitted proposal = same_key (session_id source) (proposal_session proposal) &&
+      holder_authorized (holder proposal) proposal state && approved proposal &&
+      not (revoked proposal || sent proposal) && has_key recipient (recipients proposal) &&
+      has_key destination (destinations proposal) && destination_has_person state recipient destination &&
+      valid_destinations (holder proposal) (recipients proposal) (destinations proposal) state
+
+agreement_actor : Key PersonKey → Agreement → State → Bool
+agreement_actor actor agreement state =
+  has_key actor (people state) && has_key actor (affected agreement) &&
+  case find_session (agreement_session agreement) state of
+    Nothing => False
+    Just session =>
+      audience_role session ≟ "shared" && has_key actor (participants session) &&
+      all (\person => has_key person (participants session)) (affected agreement)
+
+public export
+propose_agreement : Key PersonKey → Agreement → State → Either Failure State
+propose_agreement actor agreement state =
+  if not (valid_name (agreement_id agreement)) || not (nonblank (agreement_text agreement))
+    then Left (Invalid "agreement identifier or text")
+  else if not (agreement_actor actor agreement state)
+    then Left (Forbidden "agreement requires an affected participant in its shared session")
+  else if length (affected agreement) < 2 || not (distinct_people (affected agreement)) ||
+    not (all (\person => has_key person (people state)) (affected agreement))
+    then Left (Invalid "agreement participants")
+  else if not (agreement_revision agreement ≟ 1) || not (null (confirmations agreement))
+    then Left (Invalid "new agreement must be unconfirmed revision 1")
+  else case find_agreement (agreement_id agreement) state of
+    Just _ => Left (Invalid "agreement identifier already used")
+    Nothing => Right ({ agreements := agreements state ++ [agreement] } state)
+
+public export
+edit_agreement : Key PersonKey → Key AgreementKey → Number → Text → State → Either Failure State
+edit_agreement actor identifier revision text state =
+  case find_agreement identifier state of
+    Nothing => Left (Unknown "agreement")
+    Just agreement =>
+      if not (agreement_actor actor agreement state)
+        then Left (Forbidden "only an affected participant may edit")
+      else if not (agreement_revision agreement ≟ revision)
+        then Left (Stale "agreement revision")
+      else if not (nonblank text)
+        then Left (Invalid "agreement text")
+      else Right (replace_agreement
+        (AgreementFor identifier (agreement_session agreement) text (S revision)
+          (affected agreement) []) state)
+
+public export
+confirm_agreement : Key PersonKey → Key AgreementKey → Number → Text → State → Either Failure State
+confirm_agreement actor identifier revision exact_text state =
+  case find_agreement identifier state of
+    Nothing => Left (Unknown "agreement")
+    Just agreement =>
+      if not (agreement_actor actor agreement state)
+        then Left (Forbidden "only an affected participant may confirm")
+      else if not (agreement_revision agreement ≟ revision) || not (agreement_text agreement ≟ exact_text)
+        then Left (Stale "confirmation must identify the exact text and revision")
+      else if has_key actor (confirmations agreement)
+        then Right state
+      else Right (replace_agreement
+        ({ confirmations := confirmations agreement ++ [actor] } agreement) state)
+
+public export
+agreement_confirmed : Agreement → Bool
+agreement_confirmed agreement =
+  length (affected agreement) >= 2 && distinct_people (affected agreement) &&
+  all (\person => has_key person (confirmations agreement)) (affected agreement) &&
+  all (\person => has_key person (affected agreement)) (confirmations agreement)

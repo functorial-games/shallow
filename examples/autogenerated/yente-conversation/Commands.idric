@@ -1,0 +1,177 @@
+module Commands
+
+import Data.Text
+import Data.List
+import Data.Maybe
+import Types
+import Audience
+import Evidence
+import Challenges
+import Conversation
+import Disclosure
+import Notebook
+import PersonModel
+
+public export
+record Result where
+  constructor CommandResult
+  new_state : State
+  output : Text
+  changed : Bool
+
+ok : Text → Text → Either Failure State → Either Failure Result
+ok operation identifier action = do
+  state ← action
+  Right (CommandResult state ("OK\t" ++ operation ++ "\t" ++ identifier) True)
+
+public export
+parse_kind : Text → Either Failure AccountKind
+parse_kind "report" = Right Report
+parse_kind "hearsay" = Right Hearsay
+parse_kind "wish" = Right Wish
+parse_kind "hypothetical" = Right Hypothetical
+parse_kind "agreement-report" = Right AgreementReport
+parse_kind _ = Left (Invalid "account kind")
+
+parse_flag : Text → Either Failure Bool
+parse_flag "yes" = Right True
+parse_flag "no" = Right False
+parse_flag _ = Left (Invalid "flag requires yes or no")
+
+public export
+parse_revision : Text → Either Failure Number
+parse_revision value = if not (value ≟ "") && all isDigit (unpack value) then Right (cast value) else Left (Invalid "revision")
+
+next_evidence_id : Key SessionKey → State → Key EvidenceKey
+next_evidence_id target state = Named (key_text target ++ "-e" ++ show (S (length (visible_evidence target state))))
+
+make_evidence : Key SessionKey → Key PersonKey → Text → Text → Text → Text → State → Either Failure Evidence
+make_evidence session actor kind happened reported sentence state = do
+  category ← parse_kind kind
+  Right (Attributed (next_evidence_id session state) session actor [actor] sentence category happened reported 1 False)
+
+csv_keys : List Text → Text
+csv_keys [] = "-"
+csv_keys keys = concat (intersperse "," keys)
+
+speak : List Challenge → Text → Text → Text → Text → Text → Text → Text → State → Either Failure Result
+speak catalog session move target refs dependencies challenge sentence state = do
+  context ← project_context (Named session) state
+  parsed ← response_plan (Named session) context (concat (intersperse "\t" ["plan", move, target, refs, dependencies, challenge, sentence])) state
+  let plan = { wording := sentence } parsed
+  accepted ← accept_plan plan catalog state
+  delivered ← deliver_plan (plan_id plan) accepted
+  Right (CommandResult delivered ("YENTA\t" ++ session ++ "\t" ++ move ++ "\t" ++ sentence) True)
+
+apply_operation : List Challenge → Text → State → Either Failure Result
+apply_operation catalog line state =
+  case fields '\t' line of
+    ["person", person] => ok "person" person (add_person (Named person) state)
+    ["session", identifier, role, subject, participants, purpose] =>
+      ok "session" identifier (add_session (SessionFor (Named identifier) (map Named (comma_fields participants)) role (Named subject) purpose False False "" [] "") state)
+    ["consent", session, talk, retain] => do
+      discussion ← parse_flag talk
+      retention ← parse_flag retain
+      ok "consent" session (change_session (Named session) (\item => { discussion_allowed := discussion, retention_allowed := retention } item) state)
+    ["topic", session, subject] =>
+      if not (valid_name subject) then Left (Invalid "topic") else ok "topic" session (change_session (Named session) (\item => { topic := subject } item) state)
+    ["prefer", session, preference] =>
+      if not (valid_text preference) then Left (Invalid "preference") else ok "prefer" session (change_session (Named session) (\item => { preferences := preference } item) state)
+    ["defer", session, subject] =>
+      if not (valid_name subject) then Left (Invalid "topic") else ok "defer" session (change_session (Named session) (\item => { deferred_topics := nub (subject :: deferred_topics item) } item) state)
+    ["resume", session, subject] =>
+      ok "resume" session (change_session (Named session) (\item => { deferred_topics := filter (\old => old /= subject) (deferred_topics item) } item) state)
+    ["say", session, actor, kind, happened, reported, sentence] => do
+      item ← make_evidence (Named session) (Named actor) kind happened reported sentence state
+      ok "say" (key_text (evidence_id item)) (add_evidence item state)
+    ["hypothesis", session, identifier, refs, dependencies, sentence] =>
+      ok "hypothesis" identifier (add_hypothesis (Tentative (Named identifier) (Named session) sentence (map Named (comma_fields refs)) (map Named (comma_fields dependencies)) True) state)
+    ["withdraw", session, actor, identifier] =>
+      ok "withdraw" identifier (withdraw_hypothesis (Named session) (Named actor) (Named identifier) state)
+    ["correct", session, actor, identifier, kind, happened, reported, sentence] => do
+      item ← make_evidence (Named session) (Named actor) kind happened reported sentence state
+      ok "correct" (key_text (evidence_id item)) (replace_evidence (Named actor) (Named identifier) item state)
+    ["proposal", session, actor, identifier, recipients, destinations, sentence] =>
+      ok "proposal" identifier (draft_disclosure (Named actor) (Retelling (Named identifier) (Named session) (Named actor) (map Named (comma_fields recipients)) (map Named (comma_fields destinations)) sentence 1 False False False) state)
+    ["edit", actor, identifier, revision, recipients, destinations, sentence] => do
+      version ← parse_revision revision
+      ok "edit" identifier (edit_disclosure (Named actor) (Named identifier) version sentence (map Named (comma_fields recipients)) (map Named (comma_fields destinations)) state)
+    ["approve", actor, identifier, revision, sentence] => do
+      version ← parse_revision revision
+      ok "approve" identifier (approve_disclosure (Named actor) (Named identifier) version sentence state)
+    ["revoke", actor, identifier] => ok "revoke" identifier (revoke_disclosure (Named actor) (Named identifier) state)
+    ["deliver", actor, identifier, revision, delivered_at] => do
+      version ← parse_revision revision
+      ok "deliver" identifier (deliver_disclosure (Named actor) (Named identifier) version delivered_at state)
+    ["agreement", session, actor, identifier, participants, sentence] =>
+      ok "agreement" identifier (propose_agreement (Named actor) (AgreementFor (Named identifier) (Named session) sentence 1 (map Named (comma_fields participants)) []) state)
+    ["agreement-edit", actor, identifier, revision, sentence] => do
+      version ← parse_revision revision
+      ok "agreement-edit" identifier (edit_agreement (Named actor) (Named identifier) version sentence state)
+    ["confirm", actor, identifier, revision, sentence] => do
+      version ← parse_revision revision
+      ok "confirm" identifier (confirm_agreement (Named actor) (Named identifier) version sentence state)
+    ["show", session] => do
+      context ← project_context (Named session) state
+      Right (CommandResult state ("CONTEXT\t" ++ session ++ "\n" ++ context) False)
+    ["answer", session, move, target, refs, dependencies, challenge, sentence] =>
+      speak catalog session move target refs dependencies challenge sentence state
+    ["dimension", session, axis, name, labels, gap] =>
+      ok "dimension" axis (add_dimension session axis name (comma_fields labels) gap state)
+    ["note", session, axis, identifier, field, refs, dependencies, low, high, value, gap] =>
+      ok "note" identifier (add_reading session axis identifier field refs dependencies low high value gap state)
+    ["ask-next", target] => do
+      session ← require_intake target state
+      case inquiries session state of
+        [] => Left (Forbidden "no eligible inquiry")
+        (axis, gap) :: _ =>
+          let readings = inquiry_sources axis gap state
+              refs = map key_text (nubBy same_key (concatMap support readings))
+              dependencies = map (key_text . hypothesis_id) readings
+          in speak catalog target "revisit" ("axis:" ++ axis_id axis) (csv_keys refs) (csv_keys dependencies) "-" gap state
+    ["reply", target, actor, question, kind, happened, reported, sentence] => do
+      session ← require_intake target state
+      item ← make_evidence (session_id session) (Named actor) kind happened reported sentence state
+      ok "reply" (key_text (evidence_id item)) (link_reply session (Named question) item state)
+    ["thread", target] => do
+      session ← require_intake target state
+      Right (CommandResult state (concat (map row (thread_rows (session_id session) state))) False)
+    ["review-source", target, reason] => ok "review-source" reason (review_accounts target reason state)
+    ["project", target, terms] => do
+      interval ← project_axes target (comma_fields terms) state
+      Right (CommandResult state (row ["projection", terms, bound_text (lower_bound interval), bound_text (upper_bound interval)]) False)
+    ["shareable", target, recipient, destination] => do
+      session ← require_intake target state
+      let allowed = shareable session (Named recipient) (Named destination) state
+      let wording = \proposal : Proposal => row ["approved", key_text (proposal_id proposal), show (proposal_revision proposal), proposal_text proposal]
+      Right (CommandResult state (concat (map wording allowed)) False)
+    _ => Left (Invalid "command or field count")
+
+-- Explicit event identities make transport retries distinct from a new turn
+-- that happens to contain the same words. Receipts never enter model context.
+public export
+apply_command : List Challenge → Text → State → Either Failure Result
+apply_command catalog line state =
+  case fields '\t' line of
+    "event" :: identifier :: operation :: arguments =>
+      if not (valid_name identifier) || operation ≟ "event" then Left (Invalid "event identifier or operation")
+      else
+        let command = concat (intersperse "\t" (operation :: arguments))
+        in case find (\(key, _, _) => key ≟ identifier) (event_receipts state) of
+          Just (_, previous, response) => if previous ≟ command then Right (CommandResult state (if isPrefixOf "YENTA\t" response then "OK\treplayed\t" ++ identifier else response) False) else Left (Stale "event identifier reused with different input")
+          Nothing => do
+            result ← apply_operation catalog command state
+            if not (changed result) then Left (Invalid "event wrapper requires a mutation") else Right ()
+            let updated = { event_receipts := event_receipts (new_state result) ++ [(identifier, command, output result)] } (new_state result)
+            Right (CommandResult updated (output result) True)
+    _ => apply_operation catalog line state
+
+public export
+restore_commands : List Challenge → List Text → Either Failure State
+restore_commands catalog commands = foldl advance (Right empty_state) commands
+  where
+    advance : Either Failure State → Text → Either Failure State
+    advance current command = do
+      state ← current
+      result ← apply_command catalog command state
+      Right (new_state result)

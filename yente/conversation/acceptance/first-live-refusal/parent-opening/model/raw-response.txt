@@ -1,0 +1,9 @@
+```json
+{
+  "move": "expectation",
+  "uncertainty": "Whether the parent can adapt expectations while preserving a valued relationship",
+  "hypothesis_ids": [],
+  "challenge_id": "family-parent",
+  "wording": "How might you adjust your expectations regarding family visits if the couple decided on a different schedule?"
+}
+```

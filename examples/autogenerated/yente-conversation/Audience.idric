@@ -1,0 +1,100 @@
+module Audience
+
+import Data.Text
+import Data.List
+import Data.Maybe
+import Types
+import Notebook
+
+public export
+valid_text : Text → Bool
+valid_text value = not (value ≟ "") && all (\letter => letter /= '\0' && letter /= '\r' && letter /= '\n' && letter /= '\t') (unpack value)
+
+public export
+valid_name : Text → Bool
+valid_name value = not (value ≟ "") && all (\letter => isAlphaNum letter || letter ≟ '-' || letter ≟ '_') (unpack value)
+
+public export
+find_session : Key SessionKey → State → Maybe Session
+find_session target state = find (\session => same_key target (session_id session)) (sessions state)
+
+public export
+session_actor : Key PersonKey → Session → Bool
+session_actor actor session = has_key actor (participants session)
+
+public export
+visible_evidence : Key SessionKey → State → List Evidence
+visible_evidence target state = filter (\item => same_key target (evidence_session item)) (evidence state)
+
+public export
+visible_hypotheses : Key SessionKey → State → List Hypothesis
+visible_hypotheses target state = filter (\item => same_key target (hypothesis_session item) && hypothesis_active item) (hypotheses state)
+
+public export
+add_person : Key PersonKey → State → Either Failure State
+add_person person state =
+  if not (valid_name (key_text person)) then Left (Invalid "person identifier")
+  else if has_key person (people state) then Right state
+  else Right ({ people := people state ++ [person] } state)
+
+public export
+add_session : Session → State → Either Failure State
+add_session session state =
+  if not (valid_name (key_text (session_id session))) then Left (Invalid "session identifier")
+  else if isJust (find_session (session_id session) state) then Left (Invalid "duplicate session")
+  else if null (participants session) || length (nubBy same_key (participants session)) /= length (participants session) then Left (Invalid "participants")
+  else if not (all (\person => has_key person (people state)) (participants session)) then Left (Unknown "participant")
+  else if not (has_key (role_subject session) (people state)) then Left (Unknown "role subject")
+  else if not (elem (audience_role session) ["partner", "parent", "friend", "shared"]) then Left (Invalid "audience role")
+  else if not (valid_text (purpose session)) then Left (Invalid "purpose")
+  else Right ({ sessions := sessions state ++ [session] } state)
+
+public export
+change_session : Key SessionKey → (Session → Session) → State → Either Failure State
+change_session target change state =
+  case find_session target state of
+    Nothing => Left (Unknown "session")
+    Just session =>
+      let updated = change session
+      in if not (same_key (session_id updated) (session_id session)) || map key_text (participants updated) /= map key_text (participants session) || audience_role updated /= audience_role session || not (same_key (role_subject updated) (role_subject session)) || purpose updated /= purpose session
+           then Left (Forbidden "session identity and audience are immutable")
+           else Right ({ sessions := map (\item => if same_key target (session_id item) then updated else item) (sessions state) } state)
+
+public export
+frame : Text → Text
+frame value = show (length (unpack value)) ++ ":" ++ value
+
+public export
+row : List Text → Text
+row fields = concat (map frame fields) ++ "\n"
+
+evidence_context : Evidence → Text
+evidence_context item = row ["evidence", key_text (evidence_id item), key_text (speaker item), kind_name (account_kind item), event_time item, report_time item, show (evidence_revision item), if superseded item then "superseded" else "current", passage item]
+
+hypothesis_context : Hypothesis → Text
+hypothesis_context item = row ["tentative", key_text (hypothesis_id item), concat (intersperse "," (map key_text (support item))), concat (intersperse "," (map key_text (depends_on item))), claim item]
+
+plan_context : Bool → TurnPlan → Text
+plan_context link_question item = row ([if link_question && is_question item then "previous-question" else "previous-yenta", move_name (planned_move item),
+  if plan_active item then "active" else "withdrawn", wording item] ++
+  (if link_question && is_question item then [key_text (plan_id item)] else []))
+
+agreement_context : Agreement → Text
+agreement_context item = row ["agreement", key_text (agreement_id item), show (agreement_revision item), agreement_text item, concat (intersperse "," (map key_text (affected item))), concat (intersperse "," (map key_text (confirmations item))), if all (\person => has_key person (confirmations item)) (affected item) then "confirmed" else "pending"]
+
+public export
+project_context : Key SessionKey → State → Either Failure Text
+project_context target state =
+  case find_session target state of
+    Nothing => Left (Unknown "session")
+    Just session =>
+      let link_questions = retention_allowed session && not (null (axes_in target state))
+          separate = filter (\hypothesis => not (any (\note => same_key (interpretation note) (hypothesis_id hypothesis)) (readings state))) (visible_hypotheses target state)
+      in Right (
+      row ["session", key_text target, audience_role session, key_text (role_subject session), concat (intersperse "," (map key_text (participants session))), purpose session] ++
+      row ["mode", show (discussion_allowed session), show (retention_allowed session), topic session, concat (intersperse "," (deferred_topics session)), preferences session] ++
+      concat (map evidence_context (filter (\item => not (superseded item)) (visible_evidence target state))) ++
+      concat (map hypothesis_context separate) ++
+      concat (map (plan_context link_questions) (filter (\item => same_key target (plan_session item) && plan_delivered item && plan_active item) (plans state))) ++
+      concat (map row (profile_rows session state)) ++
+      concat (map agreement_context (filter (\item => same_key target (agreement_session item)) (agreements state))))

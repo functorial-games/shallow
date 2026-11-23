@@ -1,0 +1,52 @@
+person	sol
+person	uma
+person	val
+session	sol-home	partner	sol	sol	Fictional demonstration
+consent	sol-home	yes	yes
+session	uma-home	partner	uma	uma	Fictional demonstration
+consent	uma-home	yes	yes
+session	pair	shared	sol	sol,uma	Fictional demonstration
+consent	pair	yes	yes
+session	val-home	friend	val	val	Fictional demonstration
+consent	val-home	yes	yes
+dimension	sol-home	early		travel,timing	Who chose the early train?
+dimension	sol-home	choice	Departures seen	travel	Was the later train available?
+dimension	sol-home	return		-	What happened on the way home?
+project	sol-home	early=1
+ask-next	sol-home
+ask-next	sol-home
+reply	sol-home	sol	sol-home-p2	report		day1	I only saw one on the board.
+reply	sol-home	sol	sol-home-p1	report		day1	  I chose the early  train.
+thread	sol-home
+project	sol-home	early=1
+note	sol-home	early	rh1	timing	sol-home-e2	-	-12	40	Possible timing preference.	Would Sol do that on another route?
+note	sol-home	early	rh2	alternate reading	sol-home-e1	-	6	100	Possible schedule constraint.	Were other trains running?
+note	sol-home	choice	rh3	estimate	sol-home-e1	rh2	1	4	Only a few departures may have been visible.	How many departures did you actually see?
+project	sol-home	early=-2,choice=3,return=0
+project	sol-home	early=-2,choice=3,return=1
+defer	sol-home	travel
+ask-next	sol-home
+ask-next	sol-home
+resume	sol-home	travel
+proposal	sol-home	sol	trip	uma	pair	I took the early train.
+shareable	sol-home	uma	pair
+approve	sol	trip	1	I took the early train.
+shareable	sol-home	uma	pair
+shareable	sol-home	val	pair
+shareable	sol-home	uma	uma-home
+deliver	sol	trip	1	day1
+shareable	sol-home	uma	pair
+proposal	sol-home	sol	later	uma	pair	I usually choose the earliest departure.
+approve	sol	later	1	I usually choose the earliest departure.
+say	sol-home	sol	report		day2	I was quoting a rehearsal script in both answers.
+review-source	sol-home	sol-home-e3
+shareable	sol-home	uma	pair
+deliver	sol	later	1	day2
+project	sol-home	early=1,choice=1
+note	sol-home	early	bad	meaning	sol-home-e2	-	0	1	Old reading again.	When?
+note	sol-home	early	rh4	meaning	sol-home-e2,sol-home-e3	-	*	*	The answer may describe the role.	Which part came from your own trip?
+reply	sol-home	sol	sol-home-p1	report		day2	I remembered why you asked.
+reply	sol-home	sol	uma-home-p1	report		day2	Wrong question
+thread	pair
+project	sol-home	early=1
+project	sol-home	early=1,early=-1

@@ -1,0 +1,133 @@
+module Evidence
+
+import Data.Text
+import Data.List
+import Data.Maybe
+import Types
+import Audience
+
+public export
+find_evidence : Key EvidenceKey → State → Maybe Evidence
+find_evidence target state = find (\item => same_key target (evidence_id item)) (evidence state)
+
+public export
+find_hypothesis : Key HypothesisKey → State → Maybe Hypothesis
+find_hypothesis target state = find (\item => same_key target (hypothesis_id item)) (hypotheses state)
+
+public export
+evidence_current : Key SessionKey → Key EvidenceKey → State → Bool
+evidence_current session target state =
+  case find_evidence target state of
+    Nothing => False
+    Just item => same_key session (evidence_session item) && not (superseded item)
+
+public export
+hypothesis_current : Key SessionKey → Key HypothesisKey → State → Bool
+hypothesis_current session target state =
+  case find_hypothesis target state of
+    Nothing => False
+    Just item => same_key session (hypothesis_session item) && hypothesis_active item
+
+public export
+add_evidence : Evidence → State → Either Failure State
+add_evidence item state =
+  case find_session (evidence_session item) state of
+    Nothing => Left (Unknown "session")
+    Just session =>
+      if not (retention_allowed session) then Left (Forbidden "retention consent required")
+      else if not (session_actor (speaker item) session) then Left (Forbidden "speaker outside session")
+      else if not (valid_text (passage item)) || not (valid_name (key_text (evidence_id item))) then Left (Invalid "empty or unframed passage/identifier")
+      else if evidence_revision item /= 1 || superseded item then Left (Invalid "initial evidence state")
+      else if isJust (find_evidence (evidence_id item) state) then Left (Invalid "duplicate evidence identifier")
+      else if not (all (\person => has_key person (people state)) (subjects item)) then Left (Unknown "subject")
+      else Right ({ evidence := evidence state ++ [item] } state)
+
+-- A new reading of a reviewed account needs the later context as well.
+-- An explicitly superseded review basis still makes the old account ambiguous.
+review_grounded : Hypothesis → SourceReview → Bool
+review_grounded item review =
+  not (any (\key => has_key key (affected_accounts review)) (support item)) ||
+  has_key (basis review) (support item)
+
+public export
+add_hypothesis : Hypothesis → State → Either Failure State
+add_hypothesis item state =
+  if not (valid_name (key_text (hypothesis_id item))) || not (valid_text (claim item)) then Left (Invalid "hypothesis")
+  else if isJust (find_hypothesis (hypothesis_id item) state) then Left (Invalid "duplicate hypothesis identifier")
+  else if null (support item) then Left (Invalid "hypothesis requires evidence")
+  else if not (all (\key => evidence_current (hypothesis_session item) key state) (support item)) then Left (Forbidden "hypothesis evidence outside current context")
+  else if not (all (\key => hypothesis_current (hypothesis_session item) key state) (depends_on item)) then Left (Forbidden "hypothesis dependency outside current context")
+  else if not (all (review_grounded item) (source_reviews state)) then Left (Invalid "include the source review basis")
+  else Right ({ hypotheses := hypotheses state ++ [item] } state)
+
+-- Dependencies may point only to existing hypotheses, so cycles cannot enter.
+-- Deduplicate each round; fuel bounds traversal independently of graph shape.
+dependency_closure : Number → List (Key HypothesisKey) → List Hypothesis → List (Key HypothesisKey)
+dependency_closure Z withdrawn entries = withdrawn
+dependency_closure (S fuel) withdrawn entries =
+  let children = map hypothesis_id (filter (\item => any (\key => has_key key withdrawn) (depends_on item)) entries)
+      next = nubBy same_key (withdrawn ++ children)
+  in if length next ≟ length withdrawn then withdrawn else dependency_closure fuel next entries
+
+deactivate_hypothesis : List (Key HypothesisKey) → Hypothesis → Hypothesis
+deactivate_hypothesis affected item = if has_key (hypothesis_id item) affected then { hypothesis_active := False } item else item
+
+deactivate_plan : List (Key HypothesisKey) → List (Key EvidenceKey) → List (Key SessionKey) → TurnPlan → TurnPlan
+deactivate_plan affected corrected touched item =
+  if any (\key => has_key key affected) (hypothesis_refs item) || any (\key => has_key key corrected) (evidence_refs item) || has_key (plan_session item) touched
+    then { plan_active := False } item
+    else item
+
+withdraw_entries : List (Key HypothesisKey) → List (Key EvidenceKey) → State → State
+withdraw_entries roots corrected state =
+  let affected = dependency_closure (length (hypotheses state)) roots (hypotheses state)
+      updated_hypotheses = map (deactivate_hypothesis affected) (hypotheses state)
+      evidence_sessions = map evidence_session (filter (\item => has_key (evidence_id item) corrected) (evidence state))
+      hypothesis_sessions = map hypothesis_session (filter (\item => has_key (hypothesis_id item) affected) (hypotheses state))
+      -- A reply may use an exposed interpretation without declaring a citation.
+      -- Drop prior wording in the affected session; retain accounts and audit.
+      touched = nubBy same_key (evidence_sessions ++ hypothesis_sessions)
+      updated_plans = map (deactivate_plan affected corrected touched) (plans state)
+  in { hypotheses := updated_hypotheses, plans := updated_plans } state
+
+-- Reopen interpretations without superseding the person's words.
+public export
+reopen_source : SourceReview → State → State
+reopen_source review state =
+  let accounts = affected_accounts review
+      roots = map hypothesis_id (filter (\item => any (\key => has_key key accounts) (support item)) (hypotheses state))
+      revised = withdraw_entries roots accounts state
+  in { source_reviews := source_reviews state ++ [review] } revised
+
+public export
+invalidate_evidence : List (Key EvidenceKey) → State → State
+invalidate_evidence identifiers state =
+  let roots = map hypothesis_id (filter (\item => any (\key => has_key key identifiers) (support item)) (hypotheses state))
+      changed = { evidence := map (\item => if has_key (evidence_id item) identifiers then { superseded := True } item else item) (evidence state) } state
+  in withdraw_entries roots identifiers changed
+
+public export
+withdraw_hypothesis : Key SessionKey → Key PersonKey → Key HypothesisKey → State → Either Failure State
+withdraw_hypothesis session actor target state =
+  case find_session session state of
+    Nothing => Left (Unknown "session")
+    Just context =>
+      if not (session_actor actor context) then Left (Forbidden "correction actor")
+      else if not (hypothesis_current session target state) then Left (Unknown "active hypothesis in session")
+      else Right (withdraw_entries [target] [] state)
+
+public export
+replace_evidence : Key PersonKey → Key EvidenceKey → Evidence → State → Either Failure State
+replace_evidence actor target replacement state =
+  case find_evidence target state of
+    Nothing => Left (Unknown "evidence")
+    Just old =>
+      if not (same_key actor (speaker old)) || not (same_key (speaker old) (speaker replacement)) || not (same_key (evidence_session old) (evidence_session replacement)) then Left (Forbidden "only source speaker may supersede their report")
+      else if superseded old then Left (Stale "evidence already superseded")
+      else do
+        added ← add_evidence replacement state
+        let changed = { evidence := map (\item => if same_key target (evidence_id item) then { superseded := True } item else item) (evidence added) } added
+        let roots = map hypothesis_id (filter (\item => has_key target (support item)) (hypotheses changed))
+        let update_basis : SourceReview → SourceReview = \review => if same_key (basis review) target
+                            then { basis := evidence_id replacement } review else review
+        Right (withdraw_entries roots [target] ({ source_reviews := map update_basis (source_reviews changed) } changed))

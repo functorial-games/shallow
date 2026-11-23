@@ -1,0 +1,54 @@
+OK	person	lio
+OK	person	mira
+OK	person	nera
+OK	person	daro
+OK	person	suri
+OK	session	lio-private
+OK	session	mira-private
+OK	session	nera-private
+OK	session	daro-private
+OK	session	suri-private
+OK	session	couple
+OK	consent	lio-private
+OK	consent	mira-private
+OK	consent	nera-private
+OK	consent	daro-private
+OK	consent	suri-private
+OK	consent	couple
+OK	topic	lio-private
+OK	topic	mira-private
+OK	topic	nera-private
+OK	topic	daro-private
+OK	topic	suri-private
+OK	topic	couple
+OK	say	lio-private-e1
+OK	hypothesis	lio-pressure
+YENTA	lio-private	interpretation	When you picture those Sundays, are you picturing both of you there?
+OK	correct	lio-private-e2
+OK	say	mira-private-e1
+YENTA	mira-private	constraint	What would help you decide when you have the energy for a visit?
+OK	say	nera-private-e1
+YENTA	nera-private	hypothetical	If they visited less often than you hoped, what would you want to work out with them about staying close?
+OK	say	daro-private-e1
+YENTA	daro-private	episode	What made moving that call to Tuesday work for you?
+OK	say	suri-private-e1
+YENTA	suri-private	summarize	You saw him keep his commitment to you; the later arrangement with his brother remains outside your account.
+OK	proposal	lio-to-mira
+OK	approve	lio-to-mira
+OK	deliver	lio-to-mira
+OK	proposal	mira-to-lio
+OK	approve	mira-to-lio
+OK	deliver	mira-to-lio
+YENTA	couple	expectation	What do each of you think this asks you to commit to?
+CONTEXT	couple
+7:session6:couple6:shared3:lio8:lio,mira55:A place for statements both people explicitly authorize
+4:mode4:True4:True13:family_visits0:0:
+8:evidence31:disclosure:lio-to-mira:1:couple3:lio15:author-approved0:10:2026-01-101:17:current74:I want to visit most weeks myself; I do not expect you to join every week.
+8:evidence31:disclosure:mira-to-lio:1:couple4:mira15:author-approved0:10:2026-01-101:17:current79:I enjoyed cooking together, and I sometimes need a quiet evening after a visit.
+14:previous-yenta11:expectation6:active53:What do each of you think this asks you to commit to?
+
+CONTEXT	lio-private
+7:session11:lio-private7:partner3:lio3:lio41:Explore Lio's own hopes for family visits
+4:mode4:True4:True13:family_visits0:0:
+8:evidence14:lio-private-e23:lio4:wish0:10:2026-01-101:17:current87:I want to visit most weeks myself; Mira is welcome, and I do not expect her every week.
+

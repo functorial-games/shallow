@@ -1,0 +1,16 @@
+event	seed-person-lio	person	lio
+event	seed-person-mira	person	mira
+event	seed-person-nera	person	nera
+event	seed-person-suri	person	suri
+event	seed-session-lio	session	lio-private	partner	lio	lio	Ask Lio about fictional visiting preferences
+event	seed-session-mira	session	mira-private	partner	mira	mira	Ask Mira about fictional visiting preferences
+event	seed-session-nera	session	nera-private	parent	nera	nera	Ask Nera about fictional family contact
+event	seed-session-suri	session	suri-private	friend	suri	suri	Ask Suri about fictional observations
+event	seed-session-shared	session	couple-shared	shared	lio	lio,mira	Separate authorized statements only
+event	seed-consent-lio	consent	lio-private	yes	yes
+event	seed-consent-mira	consent	mira-private	yes	yes
+event	seed-consent-nera	consent	nera-private	yes	yes
+event	seed-consent-suri	consent	suri-private	yes	yes
+event	seed-consent-shared	consent	couple-shared	no	no
+event	seed-lio-axis	dimension	lio-private	visits	Visits	family	How often would you like to visit your family?
+event	seed-mira-axis	dimension	mira-private	evening	Evenings	rest	What helps you have a restful evening?

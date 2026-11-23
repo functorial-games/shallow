@@ -1,0 +1,9 @@
+```json
+{
+  "move": "expectation",
+  "uncertainty": "Whose time and participation are being promised",
+  "hypothesis_ids": [],
+  "challenge_id": "family-partner",
+  "wording": "When you describe regular family visits, what part of that commitment is yours, and what would you want your partner to join in?"
+}
+```

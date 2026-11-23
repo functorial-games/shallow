@@ -1,0 +1,65 @@
+module Challenges
+
+import Data.Text
+import Data.List
+import Data.List1
+import Types
+import Audience
+
+public export
+parse_move : Text → Either Failure Move
+parse_move "episode" = Right Episode
+parse_move "expectation" = Right Expectation
+parse_move "constraint" = Right Constraint
+parse_move "hypothetical" = Right Scenario
+parse_move "interpretation" = Right Interpretation
+parse_move "revisit" = Right Revisit
+parse_move "summarize" = Right Summarize
+parse_move "disclosure" = Right Disclosure
+parse_move "pause" = Right Pause
+parse_move _ = Left (Invalid "move")
+
+public export
+fields : Char → Text → List Text
+fields separator value = forget (split (\letter => letter ≟ separator) value)
+
+public export
+comma_fields : Text → List Text
+comma_fields "-" = []
+comma_fields "" = []
+comma_fields value = fields ',' value
+
+parse_challenge : Text → Either Failure Challenge
+parse_challenge line =
+  case fields '\t' line of
+    [identifier, subject, audience, author, sources, assumptions, relevance, uncertainty, first, prompt, following] => do
+      move ← parse_move first
+      _ ← traverse parse_move (comma_fields following)
+      if author /= "assistant_original" || not (valid_name identifier) then Left (Invalid "challenge identity or authorship") else if not (elem audience ["partner", "parent", "friend", "shared"]) then Left (Invalid "challenge audience") else if not (all valid_text [subject, sources, assumptions, relevance, uncertainty, prompt]) then Left (Invalid "challenge fields") else Right (ChallengeFor identifier subject audience author sources assumptions relevance uncertainty move prompt (comma_fields following))
+    _ => Left (Invalid "challenge row requires eleven fields")
+
+public export
+parse_catalog : Text → Either Failure (List Challenge)
+parse_catalog input =
+  case lines input of
+    [] => Left (Invalid "empty challenge catalog")
+    header :: remaining =>
+      if header /= "challenge_id\ttopic\taudience\tauthorship\tsource_ids\tassumptions\trelevance\tuncertainty\tfirst_move\tfirst_prompt\tfollowup_moves" then Left (Invalid "challenge header")
+      else do
+        catalog ← traverse parse_challenge (filter (\line => not (line ≟ "")) remaining)
+        if length (nub (map challenge_id catalog)) /= length catalog then Left (Invalid "duplicate challenge identifier") else Right catalog
+
+public export
+eligible_moves : Session → List Move
+eligible_moves session =
+  if not (discussion_allowed session) || elem (topic session) (deferred_topics session)
+    then [Summarize, Pause]
+    else [Episode, Expectation, Constraint, Scenario, Interpretation, Revisit, Summarize, Disclosure, Pause]
+
+public export
+eligible_challenges : Session → List Challenge → List Challenge
+eligible_challenges session = filter (\item => challenge_topic item ≟ topic session && challenge_audience item ≟ audience_role session && discussion_allowed session && not (elem (topic session) (deferred_topics session)))
+
+public export
+challenge_context : Challenge → Text
+challenge_context item = row ["challenge", challenge_id item, challenge_topic item, challenge_audience item, authorship item, source_ids item, assumptions item, relevance item, uncertainty item, move_name (first_move item), first_prompt item, concat (intersperse "," (followup_moves item))]
