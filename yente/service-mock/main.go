@@ -15,6 +15,9 @@ func main() {
 	routesPath := flag.String("routes", "routes.synthetic.tsv", "fictional route table")
 	certPath := flag.String("cert", "", "TLS certificate (with SAN for selected host)")
 	keyPath := flag.String("key", "", "TLS private key")
+	coreBinary := flag.String("core", "", "absolute path to existing Idriç yente-conversation executable")
+	stateRoot := flag.String("state-root", "", "absolute path to trusted fictional Idriç journal root")
+	materials := flag.String("materials", "", "absolute path to original Yente conversation materials")
 	flag.Parse()
 	if *certPath == "" || *keyPath == "" {
 		log.Fatal("TLS -cert and -key are required; plaintext mode is not provided")
@@ -38,10 +41,25 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	gateway := newGateway(routes, token)
+	if *coreBinary != "" || *stateRoot != "" || *materials != "" {
+		if *coreBinary == "" || *stateRoot == "" || *materials == "" {
+			log.Fatal("-core, -state-root and -materials must be supplied together")
+		}
+		bridge, err := newCoreBridge(*coreBinary, *stateRoot, *materials)
+		if err != nil {
+			log.Fatal(err)
+		}
+		gateway.Core = bridge
+	}
 	server := &http.Server{
-		Addr: *listen, Handler: newGateway(routes, token),
+		Addr: *listen, Handler: gateway,
 		ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 8192,
 	}
-	fmt.Fprintln(os.Stderr, "Yente mock HTTPS transport listening on", *listen, "(no model, no Idriç journal, no real SMS)")
+	if gateway.Core != nil {
+		fmt.Fprintln(os.Stderr, "Yente fictional HTTPS transport: stateful CLI connected to Idriç journal; FastChat/SMS remain transport-only")
+	} else {
+		fmt.Fprintln(os.Stderr, "Yente fictional HTTPS transport: acknowledgements only (no Idriç journal)")
+	}
 	log.Fatal(server.ListenAndServeTLS(*certPath, *keyPath)) // TLS negotiates HTTP/2 via Go's standard server
 }

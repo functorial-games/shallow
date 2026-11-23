@@ -1,6 +1,8 @@
 # Yente transport mock (not the matchmaker)
 
-This small Go-standard-library test gateway mocks three ways of reaching **one** Yente service: SMS-shaped inbound JSON, existing native [FastChat](https://github.com/isomorphisms/fastchat) HTTPS/HTTP2 streaming provider requests, and command-line `curl` (which may be invoked from a Shizuku/rish shell). **No production service or participant account exists here.** The mock returns an explicit canned transport acknowledgement. It does not call a model, read or mutate Yente's Idriç journal, authenticate people, send SMS, use private narratives, evaluate a relationship, or approve a disclosure.
+**New opt-in mode:** the CLI route can invoke the *existing* Idriç journal and fictional person model. Read [IDRIC-BRIDGE.md](IDRIC-BRIDGE.md) first. Without `-core`, all behavior remains the original transport-only mock. FastChat and SMS remain transport-only in either mode.
+
+This small Go-standard-library test gateway mocks three ways of reaching **one** Yente service: SMS-shaped inbound JSON, existing native [FastChat](https://github.com/isomorphisms/fastchat) HTTPS/HTTP2 streaming provider requests, and command-line `curl` (which may be invoked from a Shizuku/rish shell). **No production service or participant account exists here.** By default every route returns an explicit canned acknowledgement. With the optional `-core` integration, only `/v1/cli/` invokes the original Idriç journal. This gateway does not invoke a language model, authenticate people, send SMS, evaluate a relationship, or authorize disclosure.
 
 It belongs beside [Shallow PR #11](https://github.com/functorial-games/shallow/pull/11), whose `yente-conversation` executable already owns attributed evidence, permissions, revisions, correction and revocation. This gateway does not implement a rival conversation core. Its small in-memory receipt table only detects test retries and is lost on restart.
 

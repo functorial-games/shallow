@@ -1,5 +1,5 @@
 // Package main provides synthetic transport fixtures, not a matchmaker or
-// participant authentication. It neither reads nor writes Yente's Idriç journal.
+// participant authentication. The opt-in CLI invokes the original Idriç journal.
 package main
 
 import (
@@ -94,6 +94,7 @@ type receipt struct {
 type Gateway struct {
 	Routes   map[string]Route
 	Token    string
+	Core     *CoreBridge // nil means transport-only as before
 	mutex    sync.Mutex
 	receipts map[receiptKey]receipt // volatile fake receipts; NOT Yente's journal
 }
@@ -317,6 +318,10 @@ func (g *Gateway) cli(w http.ResponseWriter, r *http.Request, route Route) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBytes))
 	if err != nil {
 		http.Error(w, "request too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	if g.Core != nil {
+		g.respondCore(w, r, route, string(body))
 		return
 	}
 	g.respondOnce(w, route, "cli", r.Header.Get("X-Yente-Event-ID"), "", string(body))

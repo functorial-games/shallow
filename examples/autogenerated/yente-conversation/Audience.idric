@@ -4,6 +4,7 @@ import Data.Text
 import Data.List
 import Data.Maybe
 import Types
+import Notebook
 
 public export
 valid_text : Text → Bool
@@ -73,8 +74,10 @@ evidence_context item = row ["evidence", key_text (evidence_id item), key_text (
 hypothesis_context : Hypothesis → Text
 hypothesis_context item = row ["tentative", key_text (hypothesis_id item), concat (intersperse "," (map key_text (support item))), concat (intersperse "," (map key_text (depends_on item))), claim item]
 
-plan_context : TurnPlan → Text
-plan_context item = row ["previous-yenta", move_name (planned_move item), if plan_active item then "active" else "withdrawn", wording item]
+plan_context : Bool → TurnPlan → Text
+plan_context link_question item = row ([if link_question && is_question item then "previous-question" else "previous-yenta", move_name (planned_move item),
+  if plan_active item then "active" else "withdrawn", wording item] ++
+  (if link_question && is_question item then [key_text (plan_id item)] else []))
 
 agreement_context : Agreement → Text
 agreement_context item = row ["agreement", key_text (agreement_id item), show (agreement_revision item), agreement_text item, concat (intersperse "," (map key_text (affected item))), concat (intersperse "," (map key_text (confirmations item))), if all (\person => has_key person (confirmations item)) (affected item) then "confirmed" else "pending"]
@@ -84,10 +87,14 @@ project_context : Key SessionKey → State → Either Failure Text
 project_context target state =
   case find_session target state of
     Nothing => Left (Unknown "session")
-    Just session => Right (
+    Just session =>
+      let link_questions = retention_allowed session && not (null (axes_in target state))
+          separate = filter (\hypothesis => not (any (\note => same_key (interpretation note) (hypothesis_id hypothesis)) (readings state))) (visible_hypotheses target state)
+      in Right (
       row ["session", key_text target, audience_role session, key_text (role_subject session), concat (intersperse "," (map key_text (participants session))), purpose session] ++
       row ["mode", show (discussion_allowed session), show (retention_allowed session), topic session, concat (intersperse "," (deferred_topics session)), preferences session] ++
       concat (map evidence_context (filter (\item => not (superseded item)) (visible_evidence target state))) ++
-      concat (map hypothesis_context (visible_hypotheses target state)) ++
-      concat (map plan_context (filter (\item => same_key target (plan_session item) && plan_delivered item && plan_active item) (plans state))) ++
+      concat (map hypothesis_context separate) ++
+      concat (map (plan_context link_questions) (filter (\item => same_key target (plan_session item) && plan_delivered item && plan_active item) (plans state))) ++
+      concat (map row (profile_rows session state)) ++
       concat (map agreement_context (filter (\item => same_key target (agreement_session item)) (agreements state))))
