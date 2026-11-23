@@ -1,0 +1,63 @@
+OK	person	sol
+OK	person	uma
+OK	person	val
+OK	session	sol-home
+OK	consent	sol-home
+OK	session	uma-home
+OK	consent	uma-home
+OK	session	pair
+OK	consent	pair
+OK	session	val-home
+OK	consent	val-home
+OK	dimension	early
+OK	dimension	choice
+OK	dimension	return
+10:projection7:early=11:*1:*
+
+YENTA	sol-home	revisit	Who chose the early train?
+YENTA	sol-home	revisit	Was the later train available?
+OK	reply	sol-home-e1
+OK	reply	sol-home-e2
+8:question11:sol-home-p11:-11:sol-home-p26:active26:Who chose the early train?
+5:reply11:sol-home-p111:sol-home-e211:sol-home-p23:sol6:report4:day18:recorded27:  I chose the early  train.
+8:question11:sol-home-p211:sol-home-p11:-6:active30:Was the later train available?
+5:reply11:sol-home-p211:sol-home-e111:sol-home-p23:sol6:report4:day18:recorded28:I only saw one on the board.
+
+10:projection7:early=11:*1:*
+
+OK	note	rh1
+OK	note	rh2
+OK	note	rh3
+10:projection26:early=-2,choice=3,return=04:-1972:36
+
+10:projection26:early=-2,choice=3,return=11:*1:*
+
+OK	defer	sol-home
+YENTA	sol-home	revisit	What happened on the way home?
+ERR	ask-next	forbidden: no eligible inquiry
+OK	resume	sol-home
+OK	proposal	trip
+
+OK	approve	trip
+8:approved4:trip1:123:I took the early train.
+
+
+
+OK	deliver	trip
+
+OK	proposal	later
+OK	approve	later
+OK	say	sol-home-e3
+OK	review-source	sol-home-e3
+
+ERR	deliver	forbidden: delivery requires current approval
+10:projection16:early=1,choice=11:*1:*
+
+ERR	note	invalid: include the source review basis
+OK	note	rh4
+OK	reply	sol-home-e4
+ERR	reply	unknown: delivered question in intake
+ERR	thread	forbidden: person model needs a retention-enabled solo intake for the subject
+10:projection7:early=11:*1:*
+
+ERR	project	invalid: duplicate projection dimension

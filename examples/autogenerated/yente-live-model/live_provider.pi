@@ -60,6 +60,12 @@ def present(raw ∈ str) → tuple[str, str]:
         "evidence": ["id", "speaker", "account_kind", "event_time", "report_time", "revision", "status", "exact_passage"],
         "tentative": ["id", "support", "dependencies", "claim"],
         "previous-yenta": ["move", "status", "wording"],
+        "previous-question": ["move", "status", "wording", "question_id"],
+        "dimension": ["axis", "name", "tags", "status", "open_question"],
+        "note": ["axis", "field", "id", "support", "dependencies", "lower", "upper", "reading", "unresolved_question"],
+        "investigate": ["axis", "eligible_question"],
+        "source-under-review": ["basis", "affected_accounts"],
+        "reply-to": ["answer_id", "question_id", "last_question_heard"],
         "agreement": ["id", "revision", "exact_text", "affected", "confirmations", "status"],
         "eligible-moves": ["moves"],
         "challenge": ["id", "topic", "audience", "authorship", "source_ids", "assumptions", "relevance", "uncertainty", "first_move", "first_prompt", "followup_moves"]
@@ -199,15 +205,23 @@ def generate(request_path ∈ str, response_path ∈ str, evidence_root ∈ str,
         raise ValueError("Unknown comparison mode")
     evidence_choices ∈ list[str] ← []
     hypothesis_choices ∈ list[str] ← []
+    open_inquiries ∈ bool ← False
     for record in request_records(raw):
         if record[0] == "evidence":
             evidence_choices.append(record[1])
         elif record[0] == "tentative":
             hypothesis_choices.append(record[1])
+        elif record[0] == "note":
+            hypothesis_choices.append(record[3])
+        elif record[0] == "investigate":
+            open_inquiries ← True
     evidence_json ∈ str ← json.dumps(evidence_choices)
     hypothesis_json ∈ str ← json.dumps(hypothesis_choices)
     instruction ← instruction + "\nAllowed evidence_ids: " + evidence_json + "\nAllowed hypothesis_ids: " + hypothesis_json
-    instruction ← instruction + "\nOUTPUT CONTRACT\n" + SCHEMA
+    contract ∈ str ← SCHEMA
+    if open_inquiries:
+        contract ← contract.replace("For a question, evidence_ids must contain actual current evidence IDs from the context.", "You may revisit an eligible investigate question using its exact wording and uncertainty axis:ID. Cite all notes that propose that question and their evidence. For an unknown dimension those lists may be empty. Other questions require current evidence.")
+    instruction ← instruction + "\nOUTPUT CONTRACT\n" + contract
     messages ∈ list[dict[str, str]] ← [{"role": "system", "content": instruction}, {"role": "user", "content": data}]
     response_prefix ∈ str ← "{"
     chat_prompt ∈ str ← tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
@@ -275,11 +289,15 @@ def main() → None:
     elif len(arguments) == 2 and arguments[1] == "host-check":
         memory ∈ int ← cpu_memory()
         print("YENTA_CPU_HOST_OK\tphysical_memory_bytes\t" + str(memory))
+    elif len(arguments) == 3 and arguments[1] == "present":
+        raw ∈ str ← Path(arguments[2]).read_text(encoding="utf-8", errors="strict")
+        context ∈ tuple[str, str] ← present(raw)
+        print(context[1])
     elif len(arguments) == 6 and arguments[1] == "infer":
         runtime ∈ tuple[object, object] ← load_model()
         generate(arguments[2], arguments[3], arguments[4], runtime[0], runtime[1], arguments[5])
     else:
-        raise ValueError("usage: live_provider.pi check|host-check | infer REQUEST RESPONSE EVIDENCE scoped|bank")
+        raise ValueError("usage: live_provider.pi check|host-check | present REQUEST | infer REQUEST RESPONSE EVIDENCE scoped|bank")
 
 namespace ∈ dict[str, object] ← globals()
 module_name ∈ str ← namespace.get("__name__", "")

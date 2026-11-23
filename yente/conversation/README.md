@@ -128,3 +128,51 @@ observer reconstructs the complete JSON from those exact bytes; it does not
 repair or replace a model answer. Bank metadata precedes the particular
 account, with eligible moves last, so the request does not end on a canned
 opening question.
+
+## Fictional person model
+
+Use the existing `script`, `demo`, `request` and `accept` entry points.
+The first dimension designates a consenting solo session as that person's
+intake. Each person has their own set of dimension IDs. An ID can be opaque.
+The display name can be empty, and the tags can be empty. Register dimensions
+as questions arise. There is no fixed questionnaire.
+
+| TSV fields | Effect |
+| --- | --- |
+| `dimension SESSION AXIS NAME TAGS OPEN_QUESTION` | Introduce a dimension with an unresolved question and an entirely unbounded coordinate. |
+| `ask-next SESSION` | Speak the first eligible open question that has not already been asked in its current wording. Discussion consent, deferred topics and tags apply. |
+| `reply SESSION ACTOR QUESTION KIND EVENT_TIME REPORT_TIME EXACT_TEXT` | Retain the exact attributed answer, the ID of the question it answers and the last question the speaker had heard. Coordinates keep their previous uncertainty. |
+| `thread SESSION` | Read the private historical questions in delivery order, with previous/next IDs and replies. Includes unanswered and withdrawn questions. |
+| `note SESSION AXIS ID FIELD EVIDENCE_IDS DEPENDENCY_IDS LOW HIGH VALUE REMAINING_QUESTION` | Attach a named text field, a tentative reading, evidence pointers, an optional interval and the question that reading leaves open. Competing readings can coexist. |
+| `review-source SESSION EVIDENCE_ID` | Reopen prior interpretations after a later account calls the source into question. Cite the actual reason. |
+| `project SESSION AXIS=WEIGHT,...` | Compute a temporary, person-specific linear projection. Zero weight discards a dimension for this calculation. |
+| `shareable SESSION RECIPIENT DESTINATION` | Return only exact, approved, pending wording eligible for that recipient at that destination. Existing delivery and revocation commands control actual sharing. An empty result withholds everything. |
+
+`show` and model requests carry the current dimensions, tentative notes, source
+review references and eligible lines of inquiry for the intake. `thread` is a
+separate historical read. Use `reply` when the eliciting question is known.
+An ordinary `say` or an older journal cannot establish that link retrospectively.
+Use `correct` to supersede an attributed account and `withdraw` to retire a
+reading. An event ID distinguishes a transport retry from intentional repetition.
+
+The numeric layer represents a box of possible real coordinates. Bounds and
+coefficients in this mock accept signed decimal integers. An asterisk denotes
+an open end. The outer interval covers all active alternatives on an axis,
+including conflicting ones. Cross-axis dependence is unknown, so a projection
+can be wider than the true range. Reading and projecting never narrow a bound.
+A keyed note can hold text and an unresolved question with both ends open.
+
+A source review withdraws interpretations supported by the person's existing
+intake answers, their transitive dependents, and prior model wording in the
+affected intake. It records the reason beside the original accounts and closes
+pending retellings. Newly entered readings of those accounts must cite the
+review basis as well. The original words and earlier deliveries remain in
+history. Another participant's private session never receives the reason.
+Review is a supplied mock event. The model makes no diagnosis of deception.
+
+The regression fixture and its expected transcript are
+[`person-model.tsv`](fixtures/person-model.tsv) and
+[`person-model.expected`](fixtures/person-model.expected). Run the fixture via
+`script` with a fresh state directory and compare stdout byte-for-byte. It
+contains deliberate refusals. The service transport can exercise the core via
+these commands when a caller connects its dispatcher to the executable.

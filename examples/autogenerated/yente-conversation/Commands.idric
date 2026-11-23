@@ -9,6 +9,8 @@ import Evidence
 import Challenges
 import Conversation
 import Disclosure
+import Notebook
+import PersonModel
 
 public export
 record Result where
@@ -47,6 +49,19 @@ make_evidence : Key SessionKey → Key PersonKey → Text → Text → Text → 
 make_evidence session actor kind happened reported sentence state = do
   category ← parse_kind kind
   Right (Attributed (next_evidence_id session state) session actor [actor] sentence category happened reported 1 False)
+
+csv_keys : List Text → Text
+csv_keys [] = "-"
+csv_keys keys = concat (intersperse "," keys)
+
+speak : List Challenge → Text → Text → Text → Text → Text → Text → Text → State → Either Failure Result
+speak catalog session move target refs dependencies challenge sentence state = do
+  context ← project_context (Named session) state
+  parsed ← response_plan (Named session) context (concat (intersperse "\t" ["plan", move, target, refs, dependencies, challenge, sentence])) state
+  let plan = { wording := sentence } parsed
+  accepted ← accept_plan plan catalog state
+  delivered ← deliver_plan (plan_id plan) accepted
+  Right (CommandResult delivered ("YENTA\t" ++ session ++ "\t" ++ move ++ "\t" ++ sentence) True)
 
 apply_operation : List Challenge → Text → State → Either Failure Result
 apply_operation catalog line state =
@@ -99,12 +114,37 @@ apply_operation catalog line state =
     ["show", session] => do
       context ← project_context (Named session) state
       Right (CommandResult state ("CONTEXT\t" ++ session ++ "\n" ++ context) False)
-    ["answer", session, move, target, refs, dependencies, challenge, sentence] => do
-      context ← project_context (Named session) state
-      plan ← response_plan (Named session) context (concat (intersperse "\t" ["plan", move, target, refs, dependencies, challenge, sentence])) state
-      accepted ← accept_plan plan catalog state
-      delivered ← deliver_plan (plan_id plan) accepted
-      Right (CommandResult delivered ("YENTA\t" ++ session ++ "\t" ++ move ++ "\t" ++ sentence) True)
+    ["answer", session, move, target, refs, dependencies, challenge, sentence] =>
+      speak catalog session move target refs dependencies challenge sentence state
+    ["dimension", session, axis, name, labels, gap] =>
+      ok "dimension" axis (add_dimension session axis name (comma_fields labels) gap state)
+    ["note", session, axis, identifier, field, refs, dependencies, low, high, value, gap] =>
+      ok "note" identifier (add_reading session axis identifier field refs dependencies low high value gap state)
+    ["ask-next", target] => do
+      session ← require_intake target state
+      case inquiries session state of
+        [] => Left (Forbidden "no eligible inquiry")
+        (axis, gap) :: _ =>
+          let readings = inquiry_sources axis gap state
+              refs = map key_text (nubBy same_key (concatMap support readings))
+              dependencies = map (key_text . hypothesis_id) readings
+          in speak catalog target "revisit" ("axis:" ++ axis_id axis) (csv_keys refs) (csv_keys dependencies) "-" gap state
+    ["reply", target, actor, question, kind, happened, reported, sentence] => do
+      session ← require_intake target state
+      item ← make_evidence (session_id session) (Named actor) kind happened reported sentence state
+      ok "reply" (key_text (evidence_id item)) (link_reply session (Named question) item state)
+    ["thread", target] => do
+      session ← require_intake target state
+      Right (CommandResult state (concat (map row (thread_rows (session_id session) state))) False)
+    ["review-source", target, reason] => ok "review-source" reason (review_accounts target reason state)
+    ["project", target, terms] => do
+      interval ← project_axes target (comma_fields terms) state
+      Right (CommandResult state (row ["projection", terms, bound_text (lower_bound interval), bound_text (upper_bound interval)]) False)
+    ["shareable", target, recipient, destination] => do
+      session ← require_intake target state
+      let allowed = shareable session (Named recipient) (Named destination) state
+      let wording = \proposal : Proposal => row ["approved", key_text (proposal_id proposal), show (proposal_revision proposal), proposal_text proposal]
+      Right (CommandResult state (concat (map wording allowed)) False)
     _ => Left (Invalid "command or field count")
 
 -- Explicit event identities make transport retries distinct from a new turn
