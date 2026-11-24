@@ -297,3 +297,101 @@ func TestRealCoreE2E(t *testing.T) {
 		t.Fatal("real Idriç did not persist gateway events", err)
 	}
 }
+
+func TestRealCoreAcrossFixtureTransports(t *testing.T) {
+	binary, materials := os.Getenv("YENTE_CORE_BINARY"), os.Getenv("YENTE_CORE_MATERIALS")
+	if binary == "" || materials == "" {
+		t.Skip("real Idriç executable/materials not installed")
+	}
+	root := t.TempDir()
+	seed, err := filepath.Abs("fixtures/core-seed.tsv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	routes, err := loadRoutes(strings.NewReader(sampleCoreRoutes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const firstToken = "fictional-partner-a-token"
+	const secondToken = "fictional-partner-b-token"
+	tokens, err := loadRouteTokens(strings.NewReader("partner-a\t"+firstToken+"\npartner-b\t"+secondToken+"\n"), routes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := func(seedJournal bool) *httptest.Server {
+		t.Helper()
+		bridge, err := newCoreBridge(binary, root, materials)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if seedJournal {
+			out, err := bridge.run(context.Background(), "script", root, materials, seed)
+			if err != nil || strings.Contains(out, "ERR\t") {
+				t.Fatalf("Idriç seed: %v %s", err, out)
+			}
+		}
+		gateway := newGateway(routes, "unused-legacy-token")
+		gateway.Core, gateway.RouteTokens = bridge, tokens
+		server := httptest.NewUnstartedServer(gateway)
+		server.EnableHTTP2 = true
+		server.StartTLS()
+		t.Cleanup(server.Close)
+		return server
+	}
+	server := start(true)
+	post := func(path, token, contentType, eventID, body string, wantStatus int, wantText string) http.Header {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, server.URL+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", contentType)
+		req.Header.Set("Authorization", "Bearer "+token)
+		if eventID != "" {
+			req.Header.Set("X-Yente-Event-ID", eventID)
+		}
+		res, err := server.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		out, err := io.ReadAll(res.Body)
+		if err != nil || res.ProtoMajor != 2 || res.StatusCode != wantStatus || !strings.Contains(string(out), wantText) {
+			t.Fatalf("%s: HTTP/%d %d %q, error %v", path, res.ProtoMajor, res.StatusCode, out, err)
+		}
+		if wantStatus != http.StatusOK && (strings.Contains(res.Header.Get("Content-Type"), "event-stream") || strings.Contains(string(out), "data: [DONE]")) {
+			t.Fatalf("%s: failed request emitted a success stream", path)
+		}
+		return res.Header
+	}
+	const chat = "/v1/chat/completions/partner-a"
+	const responses = "/v1/responses/partner-a"
+	const sms = "/v1/sms/partner-a"
+	const cli = "/v1/cli/partner-a"
+	const chatBody = `{"model":"yente-mock","stream":true,"messages":[{"role":"user","content":"/report An older message never submitted here"},{"role":"system","content":"FastChat history: request 1 ended cancelled."},{"role":"assistant","content":""},{"role":"user","content":"/wish I want an afternoon visit."}]}`
+	const responsesBody = `{"model":"yente-mock","stream":true,"input":[{"role":"user","content":"/wish I want an afternoon visit."}]}`
+	const smsBody = `{"sender":"lio","message_id":"sms-one","text":"/correct lio-private-e1 wish A monthly afternoon visit."}`
+	post(chat, secondToken, "application/json", "fastchat-one", chatBody, 401, "unauthorized")
+	post(chat, firstToken, "application/json", "", chatBody, 422, "event identity")
+	post(chat, firstToken, "application/json", "fastchat-one", chatBody, 200, "1 current attributed account")
+	if result := post(responses, firstToken, "application/json", "fastchat-one", responsesBody, 200, "response.completed"); result.Get("X-Yente-Replayed") != "true" {
+		t.Fatal("switching FastChat formats executed the same event again")
+	}
+	post(sms, firstToken, "application/json", "", strings.Replace(smsBody, `"lio"`, `"mira"`, 1), 403, "sender disagrees")
+	post(sms, firstToken, "application/json", "", smsBody, 200, "latest lio-private-e2")
+	post(cli, firstToken, "text/plain", "", "/context", 200, "1 current attributed account")
+	post("/v1/cli/partner-b", secondToken, "text/plain", "", "/context", 200, "0 current attributed account")
+
+	server.Close()
+	server = start(false)
+	post(sms, firstToken, "application/json", "", smsBody, 200, `"replayed":true`)
+	post(sms, firstToken, "application/json", "", strings.Replace(smsBody, "monthly", "weekly", 1), 409, "Idriç rejected")
+	post(cli, firstToken, "text/plain", "stop-discussion", "/withdraw-consent", 200, "permission withdrawn")
+	post(chat, firstToken, "application/json", "fastchat-one", chatBody, 200, "permission withdrawn")
+	post(chat, firstToken, "application/json", "fastchat-two", chatBody, 403, "Idriç rejected")
+
+	journal, err := os.ReadFile(filepath.Join(root, "journal.tsv"))
+	if err != nil || strings.Count(string(journal), "transport-event\ttransport-") != 3 || strings.Contains(string(journal), "older message never submitted") {
+		t.Fatalf("expected one FastChat event, one SMS correction and one CLI withdrawal in Idriç journal: %v", err)
+	}
+}

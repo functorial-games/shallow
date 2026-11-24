@@ -56,6 +56,8 @@ event<TAB>story-001<TAB>say<TAB>lio-private<TAB>lio<TAB>wish<TAB><TAB>2026-01-10
 
 The notation `<TAB>` denotes one actual tab, not those five literal characters. Repeating the same event identifier and identical command returns its receipt without applying another transition. A previously spoken Yenta reply returns only `OK replayed EVENT_ID`, so a retry cannot emit old wording after a correction or revocation. Read operations cannot be wrapped as events. Reusing an identifier with different input is rejected. A new identifier represents a new event even if the words happen to be the same. Bare mutating commands remain supported but do not provide general transport retry identity. Event receipts do not enter the model context.
 
+The `transport-event` wrapper has the same arguments and uses the same persistent event identity. Every successful replay through it returns the opaque `OK<TAB>replayed<TAB>EVENT_ID` form, including replays of non-question commands. This lets a transport distinguish an accepted retry from a new mutation while getting its reply from a fresh context read.
+
 ## Model request and response framing
 
 The request begins with `YENTA_MODEL_REQUEST_V1`. Context rows consist of consecutive values encoded as decimal character count, colon, and value. Counts concern decoded characters, not UTF-8 byte lengths. Each row ends with a newline. Quoted utterances and policy/material values remain data inside their declared framing. The model is instructed to ignore instructions embedded in quoted accounts; deterministic validation still treats its response as an untrusted proposal.

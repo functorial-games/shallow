@@ -176,3 +176,16 @@ func TestRejectsMalformedProviderDataAndDuplicateRoutes(t *testing.T) {
 		t.Fatal("duplicate route was accepted")
 	}
 }
+
+func TestRouteTokensRejectCrossRouteReuse(t *testing.T) {
+	routes, err := loadRoutes(strings.NewReader(sampleRoutes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const line = "partner-a\tfictional-token-only-for-a\n"
+	for _, input := range []string{"partner-a\tshort\n", line + line, line + strings.Replace(line, "partner-a", "partner-b", 1), strings.Replace(line, "partner-a", "absent", 1)} {
+		if _, err := loadRouteTokens(strings.NewReader(input), routes); err == nil {
+			t.Fatal("accepted an invalid fixture credential table")
+		}
+	}
+}
