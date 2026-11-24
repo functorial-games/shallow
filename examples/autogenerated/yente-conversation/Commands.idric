@@ -54,14 +54,68 @@ csv_keys : List Text → Text
 csv_keys [] = "-"
 csv_keys keys = concat (intersperse "," keys)
 
-speak : List Challenge → Text → Text → Text → Text → Text → Text → Text → State → Either Failure Result
-speak catalog session move target refs dependencies challenge sentence state = do
+speak_plan : List Challenge → Text → List Text → State → Either Failure (TurnPlan, State)
+speak_plan catalog session fields@[_, _, _, _, _, sentence] state = do
   context ← project_context (Named session) state
-  parsed ← response_plan (Named session) context (concat (intersperse "\t" ["plan", move, target, refs, dependencies, challenge, sentence])) state
+  parsed ← response_plan (Named session) context (concat (intersperse "\t" ("plan" :: fields))) state
   let plan = { wording := sentence } parsed
   accepted ← accept_plan plan catalog state
   delivered ← deliver_plan (plan_id plan) accepted
+  Right (plan, delivered)
+speak_plan _ _ _ _ = Left (Invalid "model response requires one seven-field plan row")
+
+speak : List Challenge → Text → Text → Text → Text → Text → Text → Text → State → Either Failure Result
+speak catalog session move target refs dependencies challenge sentence state = do
+  (_, delivered) ← speak_plan catalog session [move, target, refs, dependencies, challenge, sentence] state
   Right (CommandResult delivered ("YENTA\t" ++ session ++ "\t" ++ move ++ "\t" ++ sentence) True)
+
+input_in_session : Text → Text → State → Bool
+input_in_session session identifier state =
+  case find (\(key, _, _) => key ≟ identifier) (event_receipts state) of
+    Just (_, input, _) => case fields '\t' input of
+      command :: target :: _ => elem command ["say", "correct", "reply"] && target ≟ session
+      _ => False
+    Nothing => False
+
+public export
+find_answer : Text → State → Maybe AnswerReceipt
+find_answer identifier state = find (\receipt => answer_event receipt ≟ identifier) (answer_receipts state)
+
+recover_answer : Text → Text → AnswerReceipt → State → Either Failure Result
+recover_answer session identifier receipt state =
+  case (find_session (Named session) state, find (\plan => same_key (answer_plan receipt) (plan_id plan)) (plans state)) of
+    (Just audience, Just plan) =>
+      if not (same_key (Named session) (plan_session plan)) then Left (Unknown "answer receipt")
+      else if not (discussion_allowed audience && retention_allowed audience &&
+                   plan_active plan && plan_delivered plan && planned_topic plan ≟ topic audience &&
+                   elem (move_name (planned_move plan)) (map move_name (eligible_moves audience))) then
+        Left (Forbidden "answer wording withheld by current conversation state")
+      else Right (CommandResult state (concat (intersperse "\t" ["ANSWER", session, identifier,
+                      key_text (plan_id plan), move_name (planned_move plan), wording plan])) False)
+    _ => Left (Unknown "answer receipt")
+
+admit_answer : List Challenge → Text → Text → List Text → State → Either Failure Result
+admit_answer catalog session identifier fields state =
+  if not (input_in_session session identifier state) then Left (Unknown "conversation input event") else
+  let payload = concat (intersperse "\t" fields)
+  in case find_answer identifier state of
+    Just receipt => if answer_payload receipt ≟ payload then recover_answer session identifier receipt state
+                    else Left (Stale "answer event reused with different plan")
+    Nothing => case find_session (Named session) state of
+      Nothing => Left (Unknown "session")
+      Just audience =>
+        if not (discussion_allowed audience && retention_allowed audience) then Left (Forbidden "answer requires discussion and retention consent") else do
+          (plan, delivered) ← speak_plan catalog session fields state
+          let receipt = AnswerForEvent identifier (plan_id plan) payload
+          let committed = { answer_receipts := answer_receipts delivered ++ [receipt] } delivered
+          recovered ← recover_answer session identifier receipt committed
+          Right ({ changed := True } recovered)
+
+withdraw_answers : Text → State → State
+withdraw_answers session state =
+  let admitted = map answer_plan (answer_receipts state)
+  in { plans := map (\plan => if same_key (Named session) (plan_session plan) && has_key (plan_id plan) admitted then
+         { plan_active := False } plan else plan) (plans state) } state
 
 apply_operation : List Challenge → Text → State → Either Failure Result
 apply_operation catalog line state =
@@ -72,7 +126,8 @@ apply_operation catalog line state =
     ["consent", session, talk, retain] => do
       discussion ← parse_flag talk
       retention ← parse_flag retain
-      ok "consent" session (change_session (Named session) (\item => { discussion_allowed := discussion, retention_allowed := retention } item) state)
+      updated ← change_session (Named session) (\item => { discussion_allowed := discussion, retention_allowed := retention } item) state
+      ok "consent" session (Right (if discussion && retention then updated else withdraw_answers session updated))
     ["topic", session, subject] =>
       if not (valid_name subject) then Left (Invalid "topic") else ok "topic" session (change_session (Named session) (\item => { topic := subject } item) state)
     ["prefer", session, preference] =>
@@ -116,6 +171,13 @@ apply_operation catalog line state =
       Right (CommandResult state ("CONTEXT\t" ++ session ++ "\n" ++ context) False)
     ["answer", session, move, target, refs, dependencies, challenge, sentence] =>
       speak catalog session move target refs dependencies challenge sentence state
+    ["admit-answer", session, identifier, move, target, refs, dependencies, challenge, sentence] =>
+      admit_answer catalog session identifier [move, target, refs, dependencies, challenge, sentence] state
+    ["recover-answer", session, identifier] =>
+      if not (input_in_session session identifier state) then Left (Unknown "conversation input event") else
+      case find_answer identifier state of
+        Nothing => Left (Unknown "answer receipt")
+        Just receipt => recover_answer session identifier receipt state
     ["dimension", session, axis, name, labels, gap] =>
       ok "dimension" axis (add_dimension session axis name (comma_fields labels) gap state)
     ["note", session, axis, identifier, field, refs, dependencies, low, high, value, gap] =>
@@ -151,7 +213,7 @@ apply_operation catalog line state =
 -- that happens to contain the same words. Receipts never enter model context.
 apply_event : List Challenge → Bool → Text → Text → List Text → State → Either Failure Result
 apply_event catalog opaque_receipt identifier operation arguments state =
-  if not (valid_name identifier) || operation ≟ "event" || operation ≟ "transport-event" then Left (Invalid "event identifier or operation")
+  if not (valid_name identifier) || elem operation ["event", "transport-event", "admit-answer"] then Left (Invalid "event identifier or operation")
   else
     let command = concat (intersperse "\t" (operation :: arguments))
     in case find (\(key, _, _) => key ≟ identifier) (event_receipts state) of

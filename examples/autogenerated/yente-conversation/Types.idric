@@ -178,6 +178,13 @@ record SourceReview where
   affected_accounts : List (Key EvidenceKey)
 
 public export
+record AnswerReceipt where
+  constructor AnswerForEvent
+  answer_event : Text
+  answer_plan : Key PlanKey
+  answer_payload : Text
+
+public export
 record State where
   constructor ConversationState
   people : List (Key PersonKey)
@@ -188,6 +195,7 @@ record State where
   proposals : List Proposal
   agreements : List Agreement
   event_receipts : List (Text, Text, Text)
+  answer_receipts : List AnswerReceipt
 
   dimensions : List Dimension
   readings : List Reading
@@ -196,7 +204,7 @@ record State where
 
 public export
 empty_state : State
-empty_state = ConversationState [] [] [] [] [] [] [] [] [] [] [] []
+empty_state = ConversationState [] [] [] [] [] [] [] [] [] [] [] [] []
 
 public export
 data Failure = Invalid Text | Unknown Text | Forbidden Text | Stale Text

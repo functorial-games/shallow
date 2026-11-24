@@ -8,9 +8,8 @@ import System.Directory
 import System.Errno
 import Types
 
--- Synthetic, single-process Linux/Chez storage. The caller supplies a trusted
--- absolute directory whose parents cannot be replaced by another user. This
--- is not a symlink-safe vault or a multi-process compare-and-swap transaction.
+-- Synthetic Linux/Chez storage beneath a trusted absolute directory. Writers
+-- compare their journal snapshot under the lock before replacing the file.
 -- The lock makes overlapping IO fail closed; a crash can leave .lock requiring
 -- deliberate recovery. Same-directory rename preserves the old journal when
 -- writing or renaming the replacement fails. There is no power-loss/fsync claim.
@@ -197,13 +196,18 @@ write_replacement root contents = do
                 pure $ Left $ Invalid $ "cannot atomically replace journal: " ++ strerror error_number
 
 export covering
-save_journal : Text → List Text → IO (Either Failure ())
-save_journal root commands =
+append_command : Text → List Text → Text → IO (Either Failure ())
+append_command root previous command =
   if not (valid_root root) then pure $ Left $ Invalid "journal root must be a canonical absolute path"
-  else case encode_journal commands of
+  else case encode_journal (previous ++ [command]) of
     Left failure => pure $ Left failure
     Right contents => do
       ready ← directory_ready root
       case ready of
         Left failure => pure $ Left failure
-        Right () => locked root (write_replacement root contents)
+        Right () => locked root $ do
+          latest ← load_existing root
+          case latest of
+            Left failure => pure $ Left failure
+            Right commands => if commands ≟ previous then write_replacement root contents
+                              else pure $ Left $ Stale "journal changed before commit"
