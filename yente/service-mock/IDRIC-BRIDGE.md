@@ -72,6 +72,8 @@ The provided `yente-curl.sh` still accepts the same four arguments. Set `YENTE_C
 
 The `-core` executable is real: no replacement journal interpreter is used at runtime. The expected IDs above assume a new state directory and successful seed. Responses identify themselves as **deterministic fictional mock**, not model-generated prose. Journal event retries survive gateway restarts; old generated question wording is *not* replayed by the core after withdrawal/correction.
 
+The independent recorded-reply fixture can take a transport event through the checked Ithon provider codec and the core's `accept-event` command. The [conversation contract](../conversation/README.md#model-request-and-response-framing) describes admission and `recover-answer`. `TestRealCoreAdmissionRecovery` exercises a committed SMS operation, an authored plan, recovery in a fresh core process and withholding after correction or consent withdrawal. The HTTPS gateway still returns its deterministic summaries. Connecting the provider to HTTP is a separate integration step.
+
 ## Verification and limits
 
 Run `go test -race ./...` and `go vet ./...` in this directory. Set `YENTE_CORE_BINARY` and `YENTE_CORE_MATERIALS` to canonical absolute paths to exercise the compiled core. `TestRealCoreE2E` covers CLI questions, replies and corrections. `TestRealCoreAcrossFixtureTransports` writes a FastChat command, corrects it through simulated SMS, checks through CLI, restarts against the same journal and tests collision and withdrawal behavior. Both tests skip if the executable or materials are missing.

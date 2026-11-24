@@ -47,25 +47,29 @@ load_state directory catalog = do
   pure (commands, state)
 
 covering
+publish_result : Text → Text → (List Text, State) → Result → IO (List Text, State)
+publish_result directory command (journal, state) result =
+  if changed result then do
+    saved ← append_command directory journal command
+    case saved of
+      Left error => do
+        putStrLn ("ERR\tstore\t" ++ failure_text error)
+        exitFailure
+      Right _ => do
+        putStrLn (output result)
+        pure (journal ++ [command], new_state result)
+  else do
+    putStrLn (output result)
+    pure (journal, state)
+
+covering
 run_command : Text → List Challenge → Text → (List Text, State) → IO (List Text, State)
-run_command directory catalog command (journal, state) =
+run_command directory catalog command initial@(journal, state) =
   case apply_command catalog command state of
     Left error => do
       putStrLn ("ERR\t" ++ fromMaybe "command" (head' (fields '\t' command)) ++ "\t" ++ failure_text error)
       pure (journal, state)
-    Right result =>
-      if changed result then do
-        saved ← save_journal directory (journal ++ [command])
-        case saved of
-          Left error => do
-            putStrLn ("ERR\tstore\t" ++ failure_text error)
-            exitFailure
-          Right _ => do
-            putStrLn (output result)
-            pure (journal ++ [command], new_state result)
-      else do
-        putStrLn (output result)
-        pure (journal, state)
+    Right result => publish_result directory command initial result
 
 covering
 run_commands : Text → List Challenge → List Text → (List Text, State) → IO ()
@@ -128,6 +132,49 @@ accept_file directory materials session request_path response_path = do
             pure ()
 
 covering
+require_admission : Either Failure value → IO value
+require_admission (Right value) = pure value
+require_admission (Left error) = do
+  putStrLn ("ERR\tadmission\t" ++ failure_text error)
+  exitFailure
+
+covering
+admission_line : Text → Text → Text → Either Failure Text
+admission_line session identifier response =
+  case fields '\t' (trim response) of
+    "plan" :: parts@[_, _, _, _, _, _] =>
+      if valid_name session && valid_name identifier then Right (concat (intersperse "\t" (["admit-answer", session, identifier] ++ parts)))
+      else Left (Invalid "session or input event identifier")
+    _ => Left (Invalid "model response requires one seven-field plan row")
+
+covering
+accept_event_file : Text → Text → Text → Text → Text → Text → IO ()
+accept_event_file directory materials session identifier request_path response_path = do
+  catalog ← catalog_from materials
+  initial@(_, state) ← load_state directory catalog
+  response ← read_required response_path
+  command ← require_admission (admission_line session identifier response)
+  case find_answer identifier state of
+    Nothing => do
+      policy ← read_required (materials ++ "/policy.md")
+      previous ← read_required request_path
+      current ← require_admission (model_request (Named session) catalog policy state)
+      if previous ≟ current then pure () else require_admission (Left (Stale "model request changed"))
+    Just _ => pure ()
+  result ← require_admission (apply_command catalog command state)
+  _ ← publish_result directory command initial result
+  pure ()
+
+covering
+recover_event_answer : Text → Text → Text → Text → IO ()
+recover_event_answer directory materials session identifier = do
+  catalog ← catalog_from materials
+  (_, state) ← load_state directory catalog
+  if valid_name session && valid_name identifier then pure () else require_admission (Left (Invalid "session or input event identifier"))
+  result ← require_admission (apply_command catalog ("recover-answer\t" ++ session ++ "\t" ++ identifier) state)
+  putStrLn (output result)
+
+covering
 main : IO ()
 main = do
   arguments ← getArgs
@@ -144,6 +191,9 @@ main = do
       interactive directory catalog state
     [_, "request", directory, materials, session, destination] => request_file directory materials session destination
     [_, "accept", directory, materials, session, request, response] => accept_file directory materials session request response
+    [_, "accept-event", directory, materials, session, identifier, request, response] => accept_event_file directory materials session identifier request response
+    [_, "recover-answer", directory, materials, session, identifier] => recover_event_answer directory materials session identifier
     _ => do
       putStrLn "usage: yente-conversation script STATE_ROOT MATERIALS COMMANDS | demo STATE_ROOT MATERIALS | request STATE_ROOT MATERIALS SESSION OUTPUT | accept STATE_ROOT MATERIALS SESSION REQUEST RESPONSE"
+      putStrLn "       yente-conversation accept-event STATE_ROOT MATERIALS SESSION INPUT_EVENT REQUEST RESPONSE | recover-answer STATE_ROOT MATERIALS SESSION INPUT_EVENT"
       exitFailure

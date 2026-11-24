@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -393,5 +394,114 @@ func TestRealCoreAcrossFixtureTransports(t *testing.T) {
 	journal, err := os.ReadFile(filepath.Join(root, "journal.tsv"))
 	if err != nil || strings.Count(string(journal), "transport-event\ttransport-") != 3 || strings.Contains(string(journal), "older message never submitted") {
 		t.Fatalf("expected one FastChat event, one SMS correction and one CLI withdrawal in Idriç journal: %v", err)
+	}
+}
+
+func TestRealCoreAdmissionRecovery(t *testing.T) {
+	binary, materials := os.Getenv("YENTE_CORE_BINARY"), os.Getenv("YENTE_CORE_MATERIALS")
+	if binary == "" || materials == "" {
+		t.Skip("real Idriç executable/materials not installed")
+	}
+	root := t.TempDir()
+	fixtureDir := filepath.Join(filepath.Dir(materials), "fixtures")
+	seed, err := os.ReadFile(filepath.Join(fixtureDir, "family.tsv"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeCorrection, _, found := strings.Cut(string(seed), "event\tfamily-correction-lio\t")
+	if !found {
+		t.Fatal("family fixture correction missing")
+	}
+	script := filepath.Join(root, "trial.tsv")
+	run := func(ok bool, needle string, args ...string) string {
+		t.Helper()
+		out, err := exec.Command(binary, args...).CombinedOutput()
+		if (err == nil) != ok || !strings.Contains(string(out), needle) || (!ok && strings.Contains(string(out), "ANSWER\t")) {
+			t.Fatalf("%s: %v, %q", args[0], err, out)
+		}
+		return string(out)
+	}
+	write := func(path, content string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(script, beforeCorrection)
+	run(true, "OK\tsay\tlio-private-e1", "script", root, materials, script)
+	routes, err := loadRoutes(strings.NewReader(sampleCoreRoutes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bridge, err := newCoreBridge(binary, root, materials)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const token = "fixture-partner-a-admission"
+	gateway := newGateway(routes, "")
+	gateway.Core = bridge
+	gateway.RouteTokens = map[string]string{"partner-a": token}
+	server := httptest.NewTLSServer(gateway)
+	defer server.Close()
+	post := func(id, text string) {
+		t.Helper()
+		payload, _ := json.Marshal(smsRequest{Sender: "lio", MessageID: id, Text: text})
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/v1/sms/partner-a", strings.NewReader(string(payload)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		res, err := server.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(res.Body)
+			t.Fatalf("SMS %s returned %d %s", id, res.StatusCode, body)
+		}
+	}
+	const say = "/correct lio-private-e1 wish I want to visit most weeks myself; Mira is welcome, and I do not expect her every week."
+	post("source", say)
+	id := coreEventID(routes["partner-a"], "sms", "source")
+	const session = "lio-private"
+	request := filepath.Join(root, "request.txt")
+	plan := filepath.Join(fixtureDir, "family-response.tsv")
+	run(false, "unknown: answer receipt", "recover-answer", root, materials, session, id)
+	run(true, "OK\trequest", "request", root, materials, session, request)
+	run(false, "unknown: conversation input event", "accept-event", root, materials, session, "foreign", request, plan)
+	answer := run(true, "ANSWER\tlio-private\t"+id+"\tlio-private-p2\texpectation", "accept-event", root, materials, session, id, request, plan)
+	if recovered := run(true, "ANSWER\t", "recover-answer", root, materials, session, id); recovered != answer {
+		t.Fatalf("new process recovered a different answer: %q", recovered)
+	}
+	if recovered := run(true, "ANSWER\t", "accept-event", root, materials, session, id, request, plan); recovered != answer {
+		t.Fatalf("retry after commit recovered a different answer: %q", recovered)
+	}
+	planBytes, err := os.ReadFile(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changedPlan := filepath.Join(root, "different.tsv")
+	write(changedPlan, strings.Replace(string(planBytes), "deciding which visits", "deciding what time", 1))
+	run(false, "stale: answer event reused with different plan", "accept-event", root, materials, session, id, request, changedPlan)
+	run(false, "unknown: conversation input event", "recover-answer", root, materials, "mira-private", id)
+	post("later", "/wish I may visit tomorrow.")
+	later := coreEventID(routes["partner-a"], "sms", "later")
+	run(false, "stale: model request changed", "accept-event", root, materials, session, later, request, plan)
+	post("correct-again", "/correct lio-private-e2 wish I may visit every month.")
+	run(false, "withheld", "recover-answer", root, materials, session, id)
+	request = filepath.Join(root, "fresh-request.txt")
+	write(changedPlan, strings.Replace(string(planBytes), "lio-private-e2", "lio-private-e4", 1))
+	run(true, "OK\trequest", "request", root, materials, session, request)
+	run(true, "ANSWER\t", "accept-event", root, materials, session, later, request, changedPlan)
+	post("withdraw", "/withdraw-consent")
+	run(false, "withheld", "recover-answer", root, materials, session, later)
+	write(script, "consent\tlio-private\tyes\tyes\n")
+	run(true, "OK\tconsent", "script", root, materials, script)
+	run(false, "withheld", "recover-answer", root, materials, session, later)
+	journal, err := os.ReadFile(filepath.Join(root, "journal.tsv"))
+	if err != nil || strings.Count(string(journal), "\nadmit-answer\t") != 2 {
+		t.Fatalf("expected two committed answers despite retries: %v", err)
 	}
 }
