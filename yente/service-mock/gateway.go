@@ -1,8 +1,9 @@
 // Package main provides synthetic transport fixtures, not a matchmaker or
-// participant authentication. The opt-in CLI invokes the original Idriç journal.
+// participant authentication. Opt-in fixture routes invoke the original Idriç journal.
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -64,6 +66,30 @@ func loadRoutes(reader io.Reader) (map[string]Route, error) {
 	return routes, nil
 }
 
+func loadRouteTokens(reader io.Reader, routes map[string]Route) (map[string]string, error) {
+	body, err := io.ReadAll(io.LimitReader(reader, 32769))
+	if err != nil || len(body) > 32768 {
+		return nil, errors.New("fixture credential file unreadable or too large")
+	}
+	tokens := make(map[string]string)
+	used := make(map[string]bool)
+	for i, line := range strings.Split(string(body), "\n") {
+		line = strings.TrimSuffix(line, "\r")
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		name, token, ok := strings.Cut(line, "\t")
+		if _, exists := routes[name]; !ok || !exists || !validID(token) || len(token) < 24 || tokens[name] != "" || used[token] {
+			return nil, fmt.Errorf("fixture credential line %d: expected a known route and a unique bearer token of at least 24 characters", i+1)
+		}
+		tokens[name], used[token] = token, true
+	}
+	if len(tokens) == 0 {
+		return nil, errors.New("fixture credential file is empty")
+	}
+	return tokens, nil
+}
+
 func validID(s string) bool {
 	if len(s) < 1 || len(s) > 96 || s == "." || s == ".." {
 		return false
@@ -92,11 +118,12 @@ type receipt struct {
 }
 
 type Gateway struct {
-	Routes   map[string]Route
-	Token    string
-	Core     *CoreBridge // nil means transport-only as before
-	mutex    sync.Mutex
-	receipts map[receiptKey]receipt // volatile fake receipts; NOT Yente's journal
+	Routes      map[string]Route
+	Token       string
+	Core        *CoreBridge
+	RouteTokens map[string]string // opt-in per-route fixture credentials
+	mutex       sync.Mutex
+	receipts    map[receiptKey]receipt // volatile fake receipts; NOT Yente's journal
 }
 
 func newGateway(routes map[string]Route, token string) *Gateway {
@@ -111,13 +138,9 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "yente-transport-mock\n")
 		return
 	}
-	if g.Token != "" {
-		supplied := r.Header.Get("Authorization")
-		expected := "Bearer " + g.Token
-		if len(supplied) != len(expected) || subtle.ConstantTimeCompare([]byte(supplied), []byte(expected)) != 1 {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
+	if g.RouteTokens == nil && g.Token != "" && !hasBearer(r, g.Token) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
 	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -139,6 +162,10 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
+		if g.RouteTokens != nil && !hasBearer(r, g.RouteTokens[routeName]) {
+			http.Error(w, "unauthorized for fixture route", http.StatusUnauthorized)
+			return
+		}
 		if route.Role == "shared" {
 			// Only the Idriç core may authorize a shared discussion/retelling.
 			http.Error(w, "shared sessions require explicit core authorization", http.StatusForbidden)
@@ -157,6 +184,16 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
+func hasBearer(r *http.Request, token string) bool {
+	supplied := r.Header.Values("Authorization")
+	return token != "" && len(supplied) == 1 &&
+		subtle.ConstantTimeCompare([]byte(supplied[0]), []byte("Bearer "+token)) == 1
+}
+
+func (g *Gateway) statefulFixtures() bool {
+	return g.Core != nil && g.RouteTokens != nil
+}
+
 // The single dispatch point for all frontends. There is deliberately no model
 // generation, journal mutation, attribution, inference or disclosure here.
 func mockReply(route Route, channel, text string) string {
@@ -170,7 +207,21 @@ func strictJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 		http.Error(w, "application/json required", http.StatusUnsupportedMediaType)
 		return false
 	}
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxRequestBytes))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBytes))
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			http.Error(w, "request too large", http.StatusRequestEntityTooLarge)
+		} else {
+			http.Error(w, "request unreadable", http.StatusBadRequest)
+		}
+		return false
+	}
+	if !utf8.Valid(body) {
+		http.Error(w, "invalid UTF-8 JSON request", http.StatusBadRequest)
+		return false
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
 		http.Error(w, "invalid JSON request", http.StatusBadRequest)
@@ -218,21 +269,42 @@ func (g *Gateway) chat(w http.ResponseWriter, r *http.Request, route Route, chan
 		}
 		model, stream, messages = payload.Model, payload.Stream, payload.Input
 	}
-	if model != mockModel || !stream || len(messages) == 0 || len(messages) > 32 {
+	stateful := g.statefulFixtures()
+	if model != mockModel || !stream || len(messages) == 0 || (!stateful && len(messages) > 32) {
 		http.Error(w, "unsupported mock model, stream or message history", http.StatusUnprocessableEntity)
 		return
 	}
-	for _, m := range messages {
-		if (m.Role != "user" && m.Role != "assistant") || !validMessage(m.Content) {
-			http.Error(w, "invalid message", http.StatusUnprocessableEntity)
-			return
-		}
-	}
-	if messages[len(messages)-1].Role != "user" {
+	last := messages[len(messages)-1]
+	if last.Role != "user" {
 		http.Error(w, "last message must be user", http.StatusUnprocessableEntity)
 		return
 	}
-	answer := mockReply(route, channel, messages[len(messages)-1].Content)
+	var answer string
+	if stateful {
+		// FastChat resends earlier messages, including local status records.
+		// The journal owns history. Only the final submitted command goes to it.
+		for _, m := range messages[:len(messages)-1] {
+			if m.Role != "user" && m.Role != "assistant" && m.Role != "system" {
+				http.Error(w, "invalid earlier message role", http.StatusUnprocessableEntity)
+				return
+			}
+		}
+		reply, failure := g.executeCore(r.Context(), route, "fastchat", requestEventID(r), last.Content)
+		if failure != nil {
+			http.Error(w, failure.message, failure.status)
+			return
+		}
+		answer = reply.Reply
+		w.Header().Set("X-Yente-Replayed", strconv.FormatBool(reply.Replayed))
+	} else {
+		for _, m := range messages {
+			if (m.Role != "user" && m.Role != "assistant") || !validMessage(m.Content) {
+				http.Error(w, "invalid message", http.StatusUnprocessableEntity)
+				return
+			}
+		}
+		answer = mockReply(route, channel, last.Content)
+	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.WriteHeader(http.StatusOK)
 	if channel == "fastchat" {
@@ -306,6 +378,14 @@ func (g *Gateway) sms(w http.ResponseWriter, r *http.Request, route Route) {
 		http.Error(w, "invalid synthetic sender label", http.StatusUnprocessableEntity)
 		return
 	}
+	if g.statefulFixtures() {
+		if payload.Sender != route.Actor {
+			http.Error(w, "fixture sender disagrees with route", http.StatusForbidden)
+			return
+		}
+		g.respondCoreJSON(w, r, route, "sms", payload.MessageID, payload.Text)
+		return
+	}
 	// sender is deliberately NOT used as authentication or actor attribution.
 	g.respondOnce(w, route, "sms", payload.MessageID, payload.Sender, payload.Text)
 }
@@ -321,8 +401,13 @@ func (g *Gateway) cli(w http.ResponseWriter, r *http.Request, route Route) {
 		return
 	}
 	if g.Core != nil {
-		g.respondCore(w, r, route, string(body))
+		g.respondCoreJSON(w, r, route, "cli", requestEventID(r), string(body))
 		return
 	}
 	g.respondOnce(w, route, "cli", r.Header.Get("X-Yente-Event-ID"), "", string(body))
+}
+
+func requestEventID(r *http.Request) string {
+	// A comma makes any duplicate-header value invalid under validID.
+	return strings.Join(r.Header.Values("X-Yente-Event-ID"), ",")
 }

@@ -149,21 +149,31 @@ apply_operation catalog line state =
 
 -- Explicit event identities make transport retries distinct from a new turn
 -- that happens to contain the same words. Receipts never enter model context.
+apply_event : List Challenge → Bool → Text → Text → List Text → State → Either Failure Result
+apply_event catalog opaque_receipt identifier operation arguments state =
+  if not (valid_name identifier) || operation ≟ "event" || operation ≟ "transport-event" then Left (Invalid "event identifier or operation")
+  else
+    let command = concat (intersperse "\t" (operation :: arguments))
+    in case find (\(key, _, _) => key ≟ identifier) (event_receipts state) of
+      Just (_, previous, response) =>
+        if previous ≟ command then
+          let receipt = if opaque_receipt || isPrefixOf "YENTA\t" response then "OK\treplayed\t" ++ identifier else response
+          in Right (CommandResult state receipt False)
+        else Left (Stale "event identifier reused with different input")
+      Nothing => do
+        result ← apply_operation catalog command state
+        if not (changed result) then Left (Invalid "event wrapper requires a mutation") else Right ()
+        let updated = { event_receipts := event_receipts (new_state result) ++ [(identifier, command, output result)] } (new_state result)
+        Right (CommandResult updated (output result) True)
+
 public export
 apply_command : List Challenge → Text → State → Either Failure Result
 apply_command catalog line state =
   case fields '\t' line of
     "event" :: identifier :: operation :: arguments =>
-      if not (valid_name identifier) || operation ≟ "event" then Left (Invalid "event identifier or operation")
-      else
-        let command = concat (intersperse "\t" (operation :: arguments))
-        in case find (\(key, _, _) => key ≟ identifier) (event_receipts state) of
-          Just (_, previous, response) => if previous ≟ command then Right (CommandResult state (if isPrefixOf "YENTA\t" response then "OK\treplayed\t" ++ identifier else response) False) else Left (Stale "event identifier reused with different input")
-          Nothing => do
-            result ← apply_operation catalog command state
-            if not (changed result) then Left (Invalid "event wrapper requires a mutation") else Right ()
-            let updated = { event_receipts := event_receipts (new_state result) ++ [(identifier, command, output result)] } (new_state result)
-            Right (CommandResult updated (output result) True)
+      apply_event catalog False identifier operation arguments state
+    "transport-event" :: identifier :: operation :: arguments =>
+      apply_event catalog True identifier operation arguments state
     _ => apply_operation catalog line state
 
 public export

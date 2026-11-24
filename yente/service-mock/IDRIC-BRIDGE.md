@@ -1,8 +1,8 @@
-# Yente fictional transport: Idriç-backed CLI proposal
+# Yente fictional transport through the Idriç journal
 
 This is the proposed integration of [shallow PR #12](https://github.com/functorial-games/shallow/pull/12) with the **existing** Idriç conversation core from [PR #11](https://github.com/functorial-games/shallow/pull/11), including the `ask-next` and `reply` commands in [PR #13](https://github.com/functorial-games/shallow/pull/13). It is deliberately **not** a new conversation engine and does not implement a matching model.
 
-The `-core`, `-state-root`, `-materials` options opt the existing HTTPS gateway's `/v1/cli/ROUTE` endpoint into a stateful fictional mode. When omitted, all endpoints retain the original transport-only acknowledgements. FastChat streaming and simulated SMS still return canned acknowledgements. They **do not** reach the journal in this patch; stateful access is available through the existing curl/rish-compatible CLI endpoint.
+The `-core`, `-state-root`, `-materials` options enable stateful `/v1/cli/ROUTE` requests. Add `-fixture-tokens` to enable the same journal through both FastChat stream formats and simulated SMS. Without core options, the gateway returns the original transport acknowledgements.
 
 ## What goes into the journal
 
@@ -19,11 +19,19 @@ The supported single-line message bodies are:
 | `/context` | Report scoped current account/interpretation counts and the latest active question, never the original account text. |
 | `/withdraw-consent` | Set discussion and retention permissions to `no` in the Idriç session. Subsequent accounts are refused; the audit journal remains but the gateway withholds historical metadata. |
 
-All mutations require `X-Yente-Event-ID`. No tabs, CR, LF or NUL are accepted in input text, so commands cannot inject additional Idriç journal lines. A bare chat utterance is rejected rather than silently promoted to a factual report. `shareable`, `proposal`, `approve`, `deliver` and `revoke` are intentionally **not** made transport-accessible. The existing shared route remains forbidden. No inferred private accounts enter other participants' sessions.
+CLI and FastChat mutations require `X-Yente-Event-ID`. SMS mutations use `message_id` in the JSON body. Input is validated as a single clean UTF-8 command line. The gateway rejects bare chat text and refuses shared routes. Each accepted operation belongs to the session and actor in the route table.
+
+## Stateful FastChat protocol and SMS fixtures
+
+Pass `-fixture-tokens` a private regular file with `ROUTE<TAB>TOKEN` rows. Use a distinct token of at least 24 letters, digits, underscores, hyphens or periods for each enabled route. Send that token in `Authorization: Bearer TOKEN` on all three interfaces. Keep the file outside the checkout. A configured route without a token is inaccessible in this mode.
+
+FastChat Chat Completions and Responses requests use the last user message as the command. Earlier history, including local system status messages and empty assistant replies, has no effect on the journal. Send the same event ID when retrying the same operation, including across these two FastChat formats. A successful request streams a scoped reply and the format's terminal event after the core operation and projection return. `X-Yente-Replayed: true` identifies a recognized retry. The current native app does not supply this event header. The host acceptance sends the native wire shapes directly.
+
+An SMS JSON fixture uses `sender` equal to the route's configured fictional actor, `message_id` for the durable operation ID, and `text` for the same command used by CLI. The bearer token grants fixture access, and `sender` confirms the fixture mapping. The HTTPS response contains a JSON receipt. No carrier delivery occurs.
 
 ## Local fictional run
 
-Work from a checkout that combines **PR #12** with **PR #13** (both descended from #11), then apply this patch. Build the original Idriç executable as documented in `yente/conversation/README.md`; for its pinned CI toolchain, `./.toolchain/Idric/idris2 --build yente-conversation.ipkg` yields `build/exec/yente-conversation`.
+Build the original Idriç executable as documented in `yente/conversation/README.md`. For its pinned CI toolchain, `./.toolchain/Idric/idris2 --build yente-conversation.ipkg` yields `build/exec/yente-conversation`.
 
 Initialize a *fresh* trusted, absolute journal directory using the supplied original Idriç `script` command:
 
@@ -66,6 +74,6 @@ The `-core` executable is real: no replacement journal interpreter is used at ru
 
 ## Verification and limits
 
-Run `go test -race ./...` and `go vet ./...` in this directory. The adapter tests use a deliberately limited script-command test double to check HTTP/2 wiring, attribution, route scoping, parsing and withholding. To run the **genuine** Idriç process test, set `YENTE_CORE_BINARY` and `YENTE_CORE_MATERIALS` to canonical absolute paths and use `go test -race -v -run TestRealCoreE2E`. This test seeds a real Idriç journal, starts the HTTPS CLI gateway, exercises question/reply/account/correction, verifies separate recipients, restarts the gateway against the same journal, withdraws permission and checks refusal and the journal file. It **skips**, and is not evidence of completed real integration, if the executable or runtime is missing.
+Run `go test -race ./...` and `go vet ./...` in this directory. Set `YENTE_CORE_BINARY` and `YENTE_CORE_MATERIALS` to canonical absolute paths to exercise the compiled core. `TestRealCoreE2E` covers CLI questions, replies and corrections. `TestRealCoreAcrossFixtureTransports` writes a FastChat command, corrects it through simulated SMS, checks through CLI, restarts against the same journal and tests collision and withdrawal behavior. Both tests skip if the executable or materials are missing.
 
 This remains fictional-only. The route label and shared bearer token are not authentication. Storage is the existing single-process trusted-path journal with its documented atomic rename and lock limits; it is not encrypted or a multi-process transaction. Never use this with real relationship stories or deploy it as a participant service. Consent withdrawal withholds future gateway context and blocks new retained accounts; it does not erase the original audit journal. No compatibility predictions, LLM intelligence, live SMS or FastChat stateful UI are claimed.

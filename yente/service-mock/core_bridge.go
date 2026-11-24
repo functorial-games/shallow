@@ -267,51 +267,66 @@ func coreStatus(output string) int {
 	}
 }
 
-func (g *Gateway) respondCore(w http.ResponseWriter, r *http.Request, route Route, input string) {
-	if !validMessage(input) {
-		http.Error(w, "invalid fictional command", http.StatusUnprocessableEntity)
+type coreFailure struct {
+	status  int
+	message string
+}
+
+func (g *Gateway) respondCoreJSON(w http.ResponseWriter, r *http.Request, route Route, channel, id, input string) {
+	reply, failure := g.executeCore(r.Context(), route, channel, id, input)
+	if failure != nil {
+		http.Error(w, failure.message, failure.status)
 		return
 	}
-	id := r.Header.Get("X-Yente-Event-ID")
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(reply)
+}
+
+func (g *Gateway) executeCore(ctx context.Context, route Route, channel, id, input string) (transportReply, *coreFailure) {
+	if !validMessage(input) {
+		return transportReply{}, &coreFailure{http.StatusUnprocessableEntity, "invalid fictional command"}
+	}
 	if id != "" && !validID(id) {
-		http.Error(w, "invalid event identity", http.StatusUnprocessableEntity)
-		return
+		return transportReply{}, &coreFailure{http.StatusUnprocessableEntity, "invalid event identity"}
 	}
 	if input != "/context" && id == "" {
-		http.Error(w, "state-changing commands require X-Yente-Event-ID", http.StatusUnprocessableEntity)
-		return
+		return transportReply{}, &coreFailure{http.StatusUnprocessableEntity, "state-changing commands require an event identity"}
 	}
-	operation, command, err := coreCommand(route, coreEventID(route, "cli", id), input)
+	operation, command, err := coreCommand(route, coreEventID(route, channel, id), input)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-		return
+		return transportReply{}, &coreFailure{http.StatusUnprocessableEntity, err.Error()}
 	}
 
 	// A single local prototype process owns its trusted journal root.
 	g.Core.mu.Lock()
 	defer g.Core.mu.Unlock()
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	var emitted string
-	if operation != "context" {
-		emitted, err = g.Core.script(ctx, command)
-		if err != nil {
-			http.Error(w, "Idriç core unavailable", http.StatusBadGateway)
-			return
-		}
-		if !strings.HasPrefix(emitted, "OK\t") && !strings.HasPrefix(emitted, "YENTA\t") {
-			http.Error(w, "Idriç rejected fictional command", coreStatus(emitted))
-			return
-		}
-		if strings.Count(strings.TrimSuffix(emitted, "\n"), "\n") != 0 {
-			http.Error(w, "unexpected Idriç output", http.StatusBadGateway)
-			return
-		}
-	}
+	// Resolve local route identity before committing a command. The projection
+	// after the command is a fresh read so retries respect current consent.
 	view, err := g.Core.view(ctx, route)
 	if err != nil {
-		http.Error(w, "Idriç scoped context unavailable", http.StatusBadGateway)
-		return
+		return transportReply{}, &coreFailure{http.StatusBadGateway, "Idriç scoped context unavailable"}
+	}
+	var emitted string
+	if operation != "context" {
+		if g.statefulFixtures() {
+			command = "transport-" + command
+		}
+		emitted, err = g.Core.script(ctx, command)
+		if err != nil {
+			return transportReply{}, &coreFailure{http.StatusBadGateway, "Idriç core unavailable"}
+		}
+		if !strings.HasPrefix(emitted, "OK\t") && !strings.HasPrefix(emitted, "YENTA\t") {
+			return transportReply{}, &coreFailure{coreStatus(emitted), "Idriç rejected fictional command"}
+		}
+		if strings.Count(strings.TrimSuffix(emitted, "\n"), "\n") != 0 {
+			return transportReply{}, &coreFailure{http.StatusBadGateway, "unexpected Idriç output"}
+		}
+		view, err = g.Core.view(ctx, route)
+		if err != nil {
+			return transportReply{}, &coreFailure{http.StatusBadGateway, "Idriç scoped context unavailable"}
+		}
 	}
 	reply := "Yente deterministic fictional mock (" + route.Name + "): "
 	if !view.discussion || !view.retention {
@@ -343,6 +358,5 @@ func (g *Gateway) respondCore(w http.ResponseWriter, r *http.Request, route Rout
 			reply += "Idriç accepted the fictional command."
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(transportReply{Route: route.Name, Channel: "cli", Session: route.Session, Reply: reply, Replayed: strings.HasPrefix(emitted, "OK\treplayed\t")})
+	return transportReply{Route: route.Name, Channel: channel, Session: route.Session, Reply: reply, Replayed: strings.HasPrefix(emitted, "OK\treplayed\t")}, nil
 }

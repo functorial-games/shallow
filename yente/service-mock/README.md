@@ -1,14 +1,14 @@
 # Yente transport mock (not the matchmaker)
 
-**New opt-in mode:** the CLI route can invoke the *existing* Idriç journal and fictional person model. Read [IDRIC-BRIDGE.md](IDRIC-BRIDGE.md) first. Without `-core`, all behavior remains the original transport-only mock. FastChat and SMS remain transport-only in either mode.
+**Opt-in stateful fixtures.** Configure the existing Idriç executable with `-core` for CLI access. Add `-fixture-tokens` to connect FastChat-shaped HTTPS and simulated SMS requests to the same journal. See [IDRIC-BRIDGE.md](IDRIC-BRIDGE.md) for the fixture contract.
 
-This small Go-standard-library test gateway mocks three ways of reaching **one** Yente service: SMS-shaped inbound JSON, existing native [FastChat](https://github.com/isomorphisms/fastchat) HTTPS/HTTP2 streaming provider requests, and command-line `curl` (which may be invoked from a Shizuku/rish shell). **No production service or participant account exists here.** By default every route returns an explicit canned acknowledgement. With the optional `-core` integration, only `/v1/cli/` invokes the original Idriç journal. This gateway does not invoke a language model, authenticate people, send SMS, evaluate a relationship, or authorize disclosure.
+This test gateway accepts SMS-shaped inbound JSON, [FastChat](https://github.com/isomorphisms/fastchat) HTTPS/HTTP2 streaming requests, and command-line `curl`. The default fixture returns canned acknowledgements. Stateful fixture replies summarize the Idriç journal for a fictional route. They contain deterministic text and can include a question selected by the core.
 
 It belongs beside [Shallow PR #11](https://github.com/functorial-games/shallow/pull/11), whose `yente-conversation` executable already owns attributed evidence, permissions, revisions, correction and revocation. This gateway does not implement a rival conversation core. Its small in-memory receipt table only detects test retries and is lost on restart.
 
 ## Contract
 
-The five **fictional** route entries in `routes.synthetic.tsv` map route name -> existing fixture session -> fictional actor -> audience role. All three clients choose the route in the URL, not in a spoofable message body. The same `mockReply` function handles all clients. An unverified SMS sender is not an authenticated participant. Shared-session routing is refused: it requires the real Idriç consent/delivery checks, not a canned mock. These routes must never be deployed with real participants.
+The five fictional entries in `routes.synthetic.tsv` map route names to fixture sessions, actors and audience roles. The URL names the route. In stateful fixture mode, each route has a distinct bearer token, and the gateway verifies that the configured actor belongs to the Idriç session before sending a command. Shared-session requests are refused. These routes are for fictional participants only.
 
 | Client | POST path | Body / response |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ The five **fictional** route entries in `routes.synthetic.tsv` map route name ->
 | SMS transport simulator | `/v1/sms/partner-a` | JSON `{ "sender":"synthetic-a", "message_id":"sms-1", "text":"..." }`; JSON receipt, never an actual outbound SMS |
 | CLI / Shizuku rish | `/v1/cli/partner-a` | `text/plain` body and `X-Yente-Event-ID`; JSON receipt |
 
-Event IDs are scope-bound to route and transport. An identical SMS/CLI retry replays the same acknowledgement; a reused ID with different text is rejected. The mock has no cross-window history. Session-specific context and disclosure will be supplied by the *existing* Idriç core, not by the transport route or an AI guess.
+Event IDs are scoped to route and transport. In stateful mode both FastChat formats share one namespace. The journal deduplicates retries and rejects a reused identity with different command text. A retry gets a fresh summary under current permissions. The default canned fixture keeps its original process-local SMS and CLI receipts.
 
 ## Test
 
@@ -54,4 +54,4 @@ Non-loopback listeners require `YENTE_MOCK_TOKEN` of at least 24 characters. A s
 
 ## Required before a real service
 
-Replace `mockReply` with one bridge to the existing Idriç `script`/`request`/`accept` boundary and independent Flexible Pipes/ai-ci evidence. Verify participant identity independently of phone number, URL and client-supplied messages. Do **not** silently convert every chat line into a factual `say` report: speech, question, event account and hypothesis are different acts. Respect exact journal event IDs, session permissions, corrections, deferrals, per-recipient disclosure approvals and stale-response rejection. Use real private storage and TLS credentials; add a signed SMS provider adapter and an actual delivery path. No general conversation or model quality is established by a passing transport test.
+The remaining service work includes durable operation IDs in the native FastChat client, real participant and SMS provider authentication, an outbound delivery sink, core admission of fresh model replies, shared-session permissions and independent Flexible Pipes/ai-ci acceptance.
